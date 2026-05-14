@@ -2,7 +2,7 @@
   "name": "my-project",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "npm@10",
+  "packageManager": "npm@10.20.2",
   "engines": {
     "node": "20.x"
   },
