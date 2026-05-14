@@ -1,0 +1,18 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "treadmills": {
+      ".indexOn": ["createdAt", "qrCode", "status"]
+    },
+    "maintenance": {
+      ".indexOn": ["createdAt", "treadmillId", "technicianId"]
+    },
+    "parts": {
+      ".indexOn": ["createdAt", "treadmillId", "status"]
+    },
+    "users": {
+      ".indexOn": ["role", "email"]
+    }
+  }
+}
