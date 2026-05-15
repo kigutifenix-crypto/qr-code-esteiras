@@ -30,6 +30,7 @@ import {
   Pie,
   Cell,
   Legend,
+  LabelList,
 } from 'recharts'
 
 interface DashboardStats {
@@ -122,7 +123,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total de Esteiras"
           value={stats?.treadmills.total}
@@ -157,7 +158,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <StatsCard
           title="Peças Faltando"
           value={stats?.parts.missing}
@@ -209,6 +210,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     paddingAngle={5}
                     dataKey="value"
+                    labelLine={false}
                     label={({ name, value }) => `${name}: ${value}`}
                   >
                     {statusChartData.map((entry, index) => (
@@ -222,7 +224,7 @@ export default function DashboardPage() {
                       borderRadius: '8px',
                     }}
                   />
-                  <Legend />
+                  <Legend verticalAlign="bottom" height={40} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -243,15 +245,15 @@ export default function DashboardPage() {
               <Skeleton className="h-[300px] w-full" />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={partsChartData}>
+                <BarChart data={partsChartData} margin={{ top: 20, right: 12, left: 0, bottom: 0 }} barCategoryGap="20">
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.01 250)" />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: 'oklch(0.65 0 0)' }}
+                    tick={{ fill: 'oklch(0.65 0 0)', fontSize: 12 }}
                     axisLine={{ stroke: 'oklch(0.25 0.01 250)' }}
                   />
                   <YAxis
-                    tick={{ fill: 'oklch(0.65 0 0)' }}
+                    tick={{ fill: 'oklch(0.65 0 0)', fontSize: 12 }}
                     axisLine={{ stroke: 'oklch(0.25 0.01 250)' }}
                   />
                   <Tooltip
@@ -261,7 +263,14 @@ export default function DashboardPage() {
                       borderRadius: '8px',
                     }}
                   />
-                  <Bar dataKey="value" fill="oklch(0.65 0.18 160)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="value" fill="oklch(0.65 0.18 160)" radius={[4, 4, 0, 0]}>
+                    <LabelList
+                      dataKey="value"
+                      position="top"
+                      fill="oklch(0.15 0.01 250)"
+                      style={{ fontSize: 12, fontWeight: 700 }}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -298,22 +307,22 @@ function StatsCard({
   }
 
   return (
-    <Card className="border-border/50 transition-all hover:border-primary/30">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card className="border-border/40 bg-background/80 shadow-sm ring-1 ring-inset ring-border/10 transition-all hover:border-primary/30">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+        <CardTitle className="text-sm font-semibold text-foreground">
           {title}
         </CardTitle>
-        <div className={`p-2 rounded-lg ${variantStyles[variant]}`}>
+        <div className={`p-2 rounded-xl ${variantStyles[variant]}`}>
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {loading ? (
-          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-10 w-24" />
         ) : (
-          <div className="text-3xl font-bold">{value ?? 0}</div>
+          <div className="text-3xl font-bold text-foreground">{value ?? 0}</div>
         )}
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
+        <p className="text-sm text-muted-foreground mt-2">{description}</p>
       </CardContent>
     </Card>
   )
