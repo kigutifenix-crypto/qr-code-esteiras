@@ -30,7 +30,6 @@ import {
   Pie,
   Cell,
   Legend,
-  LabelList,
 } from 'recharts'
 
 interface DashboardStats {
@@ -123,7 +122,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total de Esteiras"
           value={stats?.treadmills.total}
@@ -158,7 +157,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
         <StatsCard
           title="Peças Faltando"
           value={stats?.parts.missing}
@@ -186,7 +185,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Status Distribution */}
         <Card className="border-border/50">
           <CardHeader>
@@ -198,33 +197,47 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-[320px] w-full" />
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
                   <Pie
                     data={statusChartData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
+                    innerRadius={45}
+                    outerRadius={80}
+                    paddingAngle={3}
                     dataKey="value"
-                    labelLine={false}
                     label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={true}
                   >
                     {statusChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip
+                    wrapperStyle={{ outline: 'none' }}
                     contentStyle={{
                       backgroundColor: 'oklch(0.16 0.01 250)',
                       border: '1px solid oklch(0.25 0.01 250)',
                       borderRadius: '8px',
+                      color: 'oklch(0.95 0.01 250)',
+                      padding: '8px 12px',
+                    }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-slate-900/90 border border-slate-700 rounded-lg p-3 text-sm text-white">
+                            <p className="font-semibold">{payload[0].payload.name}</p>
+                            <p className="text-slate-300">{payload[0].value} equipamentos</p>
+                          </div>
+                        )
+                      }
+                      return null
                     }}
                   />
-                  <Legend verticalAlign="bottom" height={40} />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -242,10 +255,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-[320px] w-full" />
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={partsChartData} margin={{ top: 20, right: 12, left: 0, bottom: 0 }} barCategoryGap="20">
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={partsChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.01 250)" />
                   <XAxis
                     dataKey="name"
@@ -257,20 +270,32 @@ export default function DashboardPage() {
                     axisLine={{ stroke: 'oklch(0.25 0.01 250)' }}
                   />
                   <Tooltip
+                    wrapperStyle={{ outline: 'none' }}
                     contentStyle={{
                       backgroundColor: 'oklch(0.16 0.01 250)',
                       border: '1px solid oklch(0.25 0.01 250)',
                       borderRadius: '8px',
+                      color: 'oklch(0.95 0.01 250)',
+                      padding: '8px 12px',
+                    }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-slate-900/90 border border-slate-700 rounded-lg p-3 text-sm text-white">
+                            <p className="font-semibold">{payload[0].payload.name}</p>
+                            <p className="text-slate-300">{payload[0].value} peças</p>
+                          </div>
+                        )
+                      }
+                      return null
                     }}
                   />
-                  <Bar dataKey="value" fill="oklch(0.65 0.18 160)" radius={[4, 4, 0, 0]}>
-                    <LabelList
-                      dataKey="value"
-                      position="top"
-                      fill="oklch(0.15 0.01 250)"
-                      style={{ fontSize: 12, fontWeight: 700 }}
-                    />
-                  </Bar>
+                  <Bar 
+                    dataKey="value" 
+                    fill="oklch(0.65 0.18 160)" 
+                    radius={[4, 4, 0, 0]}
+                    label={{ position: 'top', fill: 'oklch(0.95 0.01 250)', fontSize: 13, fontWeight: 'bold' }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -307,22 +332,22 @@ function StatsCard({
   }
 
   return (
-    <Card className="border-border/40 bg-background/80 shadow-sm ring-1 ring-inset ring-border/10 transition-all hover:border-primary/30">
-      <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-        <CardTitle className="text-sm font-semibold text-foreground">
+    <Card className="border-border/50 transition-all hover:border-primary/30">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <div className={`p-2 rounded-xl ${variantStyles[variant]}`}>
+        <div className={`p-2 rounded-lg ${variantStyles[variant]}`}>
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent>
         {loading ? (
-          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-8 w-16" />
         ) : (
-          <div className="text-3xl font-bold text-foreground">{value ?? 0}</div>
+          <div className="text-3xl font-bold">{value ?? 0}</div>
         )}
-        <p className="text-sm text-muted-foreground mt-2">{description}</p>
+        <p className="text-xs text-muted-foreground mt-1">{description}</p>
       </CardContent>
     </Card>
   )

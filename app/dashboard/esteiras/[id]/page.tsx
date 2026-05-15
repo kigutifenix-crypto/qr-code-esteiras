@@ -98,36 +98,34 @@ export default function EsteiraDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <Button variant="ghost" size="icon" asChild className="shrink-0 mt-1">
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard/esteiras">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <h1 className="text-2xl font-bold tracking-tight truncate">{treadmill.name}</h1>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{treadmill.name}</h1>
               <StatusBadge status={treadmill.status} />
             </div>
-            <p className="text-muted-foreground mt-1 line-clamp-2">
+            <p className="text-muted-foreground mt-1">
               {treadmill.brand} - {treadmill.model}
             </p>
           </div>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none">
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
             <Link href={`/dashboard/esteiras/${id}/qrcode`}>
               <QrCode className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">QR Code</span>
-              <span className="sm:hidden">QR</span>
+              QR Code
             </Link>
           </Button>
           {canEdit && (
-            <Button size="sm" asChild className="flex-1 sm:flex-none">
+            <Button asChild>
               <Link href={`/dashboard/esteiras/${id}/editar`}>
                 <Edit className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Editar</span>
-                <span className="sm:hidden">Edit</span>
+                Editar
               </Link>
             </Button>
           )}

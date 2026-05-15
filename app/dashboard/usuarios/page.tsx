@@ -230,7 +230,7 @@ export default function UsuariosPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card className="border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -316,24 +316,17 @@ export default function UsuariosPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Nome</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Função</TableHead>
-                  <TableHead className="hidden sm:table-cell">Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Cadastro</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Cadastro</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex flex-col gap-1">
-                        <span className="block">{user.name}</span>
-                        <span className="block md:hidden text-xs text-muted-foreground">
-                          {user.email}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground hidden md:table-cell">
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
                       {user.email}
                     </TableCell>
                     <TableCell>
@@ -360,7 +353,7 @@ export default function UsuariosPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">
+                    <TableCell>
                       <Badge
                         variant={user.active ? 'default' : 'secondary'}
                         className={
@@ -372,7 +365,7 @@ export default function UsuariosPage() {
                         {user.active ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
+                    <TableCell className="text-muted-foreground text-sm">
                       {format(user.createdAt, 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
                   </TableRow>

@@ -248,7 +248,7 @@ export default function LogsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
                               disabled={deletingLogId === log.id}
                             >
                               <Trash2 className="h-4 w-4" />
