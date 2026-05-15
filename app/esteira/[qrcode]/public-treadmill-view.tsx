@@ -40,7 +40,7 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const treadmillData = await getTreadmillByQRCode(qrCode)
+        const treadmillData = await getTreadmillByQRCode(qrCode.trim().toUpperCase())
 
         if (treadmillData) {
           setTreadmill(treadmillData)
