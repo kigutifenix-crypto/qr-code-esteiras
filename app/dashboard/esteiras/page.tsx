@@ -210,24 +210,31 @@ export default function EsteirasPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>QR Code</TableHead>
+                  <TableHead className="hidden md:table-cell">QR Code</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Marca / Modelo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Cadastro</TableHead>
+                  <TableHead className="hidden lg:table-cell">Marca / Modelo</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTreadmills.map((treadmill) => (
-                  <TableRow key={treadmill.id} className="group">
-                    <TableCell>
+                  <TableRow key={treadmill.id}>
+                    <TableCell className="hidden md:table-cell">
                       <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
                         {treadmill.qrCode}
                       </code>
                     </TableCell>
-                    <TableCell className="font-medium">{treadmill.name}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col gap-1">
+                        <span className="block">{treadmill.name}</span>
+                        <span className="block md:hidden text-xs text-muted-foreground">
+                          {treadmill.brand} - {treadmill.model}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="flex flex-col">
                         <span>{treadmill.brand}</span>
                         <span className="text-xs text-muted-foreground">
@@ -235,19 +242,19 @@ export default function EsteirasPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <StatusBadge status={treadmill.status} size="sm" />
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
                       {format(treadmill.createdAt, "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Ações</span>

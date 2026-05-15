@@ -191,27 +191,34 @@ export default function PecasPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Nome</TableHead>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Qtd</TableHead>
+                  <TableHead className="hidden md:table-cell">Código</TableHead>
+                  <TableHead className="hidden sm:table-cell">Qtd</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Previsão</TableHead>
+                  <TableHead className="hidden lg:table-cell">Previsão</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredParts.map((part) => (
-                  <TableRow key={part.id} className="group">
-                    <TableCell className="font-medium">{part.name}</TableCell>
-                    <TableCell>
+                  <TableRow key={part.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col gap-1">
+                        <span className="block">{part.name}</span>
+                        <span className="block md:hidden text-xs text-muted-foreground">
+                          {part.code}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
                         {part.code}
                       </code>
                     </TableCell>
-                    <TableCell>{part.quantity}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{part.quantity}</TableCell>
                     <TableCell>
                       <StatusBadge status={part.status} size="sm" />
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
                       {part.expectedDelivery
                         ? format(part.expectedDelivery, "dd/MM/yyyy", { locale: ptBR })
                         : '-'}
@@ -220,9 +227,9 @@ export default function PecasPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Ações</span>
