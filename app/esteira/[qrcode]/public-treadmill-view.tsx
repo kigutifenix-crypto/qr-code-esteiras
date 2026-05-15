@@ -22,6 +22,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Home,
+  LogIn,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -126,9 +128,25 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
                 <p className="text-xs text-muted-foreground">Fenix Company</p>
               </div>
             </div>
-            <Badge variant="outline" className="font-mono text-xs">
-              {treadmill.qrCode}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="font-mono text-xs">
+                {treadmill.qrCode}
+              </Badge>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/">
+                    <Home className="h-4 w-4" />
+                    <span className="hidden sm:inline">Voltar</span>
+                  </Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/login">
+                    <LogIn className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sistema</span>
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -175,6 +193,28 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
                   : 'Equipamento indisponível para venda'}
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Access System Card */}
+        <Card className="border-border/50 bg-primary/5 border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-base">Acesso ao Sistema Completo</CardTitle>
+            <CardDescription>
+              Faça login para visualizar detalhes completos, histórico de manutenção e gerenciar esta esteira
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-2">
+            <Button asChild className="flex-1">
+              <Link href={`/dashboard/esteiras/${treadmill.id}`}>
+                Ver Esteira Completa
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/login">
+                Fazer Login
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 
