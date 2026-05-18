@@ -38,7 +38,7 @@ function snapshotToTreadmill(id: string, data: any): Treadmill {
     maxSpeed: data?.maxSpeed || '',
     incline: data?.incline || '',
     photos: Array.isArray(data?.photos) ? data.photos : [],
-    status: (data?.status as TreadmillStatus) || 'manutencao',
+    status: (data?.status as TreadmillStatus) || 'pronta',
     createdAt: typeof data?.createdAt === 'number' ? new Date(data.createdAt) : new Date(),
     updatedAt: typeof data?.updatedAt === 'number' ? new Date(data.updatedAt) : new Date(),
     createdBy: data?.createdBy || '',
@@ -48,15 +48,17 @@ function snapshotToTreadmill(id: string, data: any): Treadmill {
 
 // Create a new treadmill
 export async function createTreadmill(
-  data: Omit<Treadmill, 'id' | 'qrCode' | 'createdAt' | 'updatedAt'>
+  data: Omit<Treadmill, 'id' | 'createdAt' | 'updatedAt'> & { qrCode?: string }
 ): Promise<string> {
   const now = Date.now()
-  const qrCode = generateQRId()
+  const qrCode = data.qrCode || generateQRId()
   const treadmillRef = push(ref(db, COLLECTIONS.TREADMILLS))
 
   await set(treadmillRef, {
     ...data,
     qrCode,
+    status: data.status || 'pronta',
+    voltage: data.voltage || '220V',
     createdAt: now,
     updatedAt: now,
   })
@@ -243,6 +245,7 @@ export async function getDashboardStats(): Promise<{
   total: number
   ready: number
   maintenance: number
+  awaitingParts: number
   unavailable: number
 }> {
   const treadmills = await getAllTreadmills()
@@ -251,6 +254,7 @@ export async function getDashboardStats(): Promise<{
     total: treadmills.length,
     ready: treadmills.filter((t) => t.status === 'pronta').length,
     maintenance: treadmills.filter((t) => t.status === 'manutencao').length,
+    awaitingParts: treadmills.filter((t) => t.status === 'aguardando_pecas').length,
     unavailable: treadmills.filter((t) => t.status === 'indisponivel').length,
   }
 }

@@ -46,12 +46,12 @@ export default function EditarEsteiraPage() {
     serialNumber: '',
     description: '',
     specifications: '',
-    voltage: '110V',
+    voltage: '220V',
     motorPower: '',
     maxWeight: '',
     maxSpeed: '',
     incline: '',
-    status: 'manutencao',
+    status: 'pronta',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -81,7 +81,7 @@ export default function EditarEsteiraPage() {
           serialNumber: treadmill.serialNumber,
           description: treadmill.description,
           specifications: treadmill.specifications,
-          voltage: treadmill.voltage || '110V',
+          voltage: treadmill.voltage || '220V',
           motorPower: treadmill.motorPower,
           maxWeight: treadmill.maxWeight,
           maxSpeed: treadmill.maxSpeed,
@@ -272,6 +272,7 @@ export default function EditarEsteiraPage() {
                 <SelectContent>
                   <SelectItem value="pronta">Pronta para Venda</SelectItem>
                   <SelectItem value="manutencao">Em Manutenção</SelectItem>
+                  <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
                   <SelectItem value="indisponivel">Indisponível</SelectItem>
                 </SelectContent>
               </Select>
@@ -298,8 +299,8 @@ export default function EditarEsteiraPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="110V">110V</SelectItem>
                     <SelectItem value="220V">220V</SelectItem>
+                    <SelectItem value="110V">110V</SelectItem>
                     <SelectItem value="Bivolt">Bivolt</SelectItem>
                   </SelectContent>
                 </Select>

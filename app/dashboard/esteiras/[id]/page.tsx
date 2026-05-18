@@ -339,7 +339,7 @@ export default function EsteiraDetailPage() {
         <TabsContent value="parts" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Peças Relacionadas</h3>
-            {hasPermission('add_parts') && (
+            {(hasPermission('add_parts') || hasPermission('manage_parts')) && (
               <Button asChild>
                 <Link href={`/dashboard/pecas/nova?esteira=${id}`}>
                   <Package className="mr-2 h-4 w-4" />
@@ -360,22 +360,59 @@ export default function EsteiraDetailPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               {parts.map((part) => (
                 <Card key={part.id} className="border-border/50">
-                  <CardContent className="pt-4">
-                    <div className="flex justify-between items-start">
+                  <CardContent className="space-y-3 pt-4">
+                    <div className="flex justify-between items-start gap-4">
                       <div>
                         <p className="font-medium">{part.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          Código: {part.code} | Qtd: {part.quantity}
+                          Código: {part.code}
                         </p>
                       </div>
                       <StatusBadge status={part.status} size="sm" />
                     </div>
-                    {part.expectedDelivery && part.status === 'comprada' && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Previsão:{' '}
-                        {format(part.expectedDelivery, 'dd/MM/yyyy')}
-                      </p>
-                    )}
+
+                    <div className="grid gap-2 text-sm text-muted-foreground">
+                      <div>
+                        <span className="font-medium text-foreground">Quantidade: </span>
+                        {part.quantity}
+                      </div>
+                      {part.supplier && (
+                        <div>
+                          <span className="font-medium text-foreground">Fornecedor: </span>
+                          {part.supplier}
+                        </div>
+                      )}
+                      {part.purchasedBy && (
+                        <div>
+                          <span className="font-medium text-foreground">Comprada por: </span>
+                          {part.purchasedBy}
+                        </div>
+                      )}
+                      {part.expectedDelivery && (
+                        <div>
+                          <span className="font-medium text-foreground">Previsão de entrega: </span>
+                          {format(part.expectedDelivery, 'dd/MM/yyyy')}
+                        </div>
+                      )}
+                      {part.purchasedAt && (
+                        <div>
+                          <span className="font-medium text-foreground">Data de compra: </span>
+                          {format(part.purchasedAt, 'dd/MM/yyyy')}
+                        </div>
+                      )}
+                      {part.receivedAt && (
+                        <div>
+                          <span className="font-medium text-foreground">Recebida em: </span>
+                          {format(part.receivedAt, 'dd/MM/yyyy')}
+                        </div>
+                      )}
+                      {part.notes && (
+                        <div>
+                          <span className="font-medium text-foreground">Observações: </span>
+                          {part.notes}
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}

@@ -14,7 +14,7 @@ export interface User {
 }
 
 // Treadmill status
-export type TreadmillStatus = 'pronta' | 'manutencao' | 'indisponivel'
+export type TreadmillStatus = 'pronta' | 'manutencao' | 'indisponivel' | 'aguardando_pecas'
 
 // Treadmill type
 export interface Treadmill {

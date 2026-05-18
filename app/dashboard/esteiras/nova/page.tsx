@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
-import { createTreadmill } from '@/lib/services/treadmill-service'
+import { createTreadmill, getAllTreadmills } from '@/lib/services/treadmill-service'
 import type { TreadmillStatus } from '@/lib/types'
 import { ArrowLeft, Loader2, Save, AlertCircle } from 'lucide-react'
 
@@ -26,6 +26,7 @@ export default function NovaEsteiraPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [availableNumbers, setAvailableNumbers] = useState<string[]>([])
 
   const [formData, setFormData] = useState({
     name: '',
@@ -34,12 +35,13 @@ export default function NovaEsteiraPage() {
     serialNumber: '',
     description: '',
     specifications: '',
-    voltage: '110V',
+    voltage: '220V',
     motorPower: '',
     maxWeight: '',
     maxSpeed: '',
     incline: '',
-    status: 'manutencao' as TreadmillStatus,
+    status: 'pronta' as TreadmillStatus,
+    number: '',
   })
 
   const handleChange = (
@@ -49,14 +51,36 @@ export default function NovaEsteiraPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  useEffect(() => {
+    async function loadNumbers() {
+      try {
+        const treadmills = await getAllTreadmills()
+        const takenNumbers = treadmills.map((t) => t.qrCode)
+        const allNumbers = Array.from({ length: 200 }, (_, i) => String(i + 1))
+        setAvailableNumbers(allNumbers.filter((number) => !takenNumbers.includes(number)))
+      } catch (err) {
+        console.error('Erro ao carregar números disponíveis:', err)
+      }
+    }
+
+    loadNumbers()
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
+    if (!formData.number) {
+      setError('Selecione um número para a esteira.')
+      setLoading(false)
+      return
+    }
+
     try {
       await createTreadmill({
         ...formData,
+        qrCode: formData.number,
         photos: [],
         createdBy: user?.id || '',
         createdByName: user?.name || '',
@@ -116,15 +140,24 @@ export default function NovaEsteiraPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="serialNumber">Número de Série</Label>
-                <Input
-                  id="serialNumber"
-                  name="serialNumber"
-                  value={formData.serialNumber}
-                  onChange={handleChange}
-                  placeholder="Ex: SN-2024-001"
-                  className="bg-input/50"
-                />
+                <Label htmlFor="number">Número *</Label>
+                <Select
+                  value={formData.number}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, number: value }))
+                  }
+                >
+                  <SelectTrigger id="number" className="bg-input/50">
+                    <SelectValue placeholder="Selecione um número" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableNumbers.map((number) => (
+                      <SelectItem key={number} value={number}>
+                        {number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -155,23 +188,37 @@ export default function NovaEsteiraPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status Inicial</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, status: value as TreadmillStatus }))
-                }
-              >
-                <SelectTrigger className="bg-input/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pronta">Pronta para Venda</SelectItem>
-                  <SelectItem value="manutencao">Em Manutenção</SelectItem>
-                  <SelectItem value="indisponivel">Indisponível</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="serialNumber">Número de Série</Label>
+                <Input
+                  id="serialNumber"
+                  name="serialNumber"
+                  value={formData.serialNumber}
+                  onChange={handleChange}
+                  placeholder="Ex: SN-2024-001"
+                  className="bg-input/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status Inicial</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, status: value as TreadmillStatus }))
+                  }
+                >
+                  <SelectTrigger className="bg-input/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pronta">Pronta para Venda</SelectItem>
+                    <SelectItem value="manutencao">Em Manutenção</SelectItem>
+                    <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
+                    <SelectItem value="indisponivel">Indisponível</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -196,8 +243,8 @@ export default function NovaEsteiraPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="110V">110V</SelectItem>
                     <SelectItem value="220V">220V</SelectItem>
+                    <SelectItem value="110V">110V</SelectItem>
                     <SelectItem value="Bivolt">Bivolt</SelectItem>
                   </SelectContent>
                 </Select>

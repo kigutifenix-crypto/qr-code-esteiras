@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -121,6 +122,7 @@ export default function EsteirasPage() {
     }
   }
 
+  const router = useRouter()
   const canCreate = hasPermission('create_treadmill')
   const canEdit = hasPermission('edit_treadmill')
   const canDelete = hasPermission('delete_treadmill')
@@ -172,6 +174,7 @@ export default function EsteirasPage() {
                 <SelectItem value="all">Todos os Status</SelectItem>
                 <SelectItem value="pronta">Prontas para Venda</SelectItem>
                 <SelectItem value="manutencao">Em Manutenção</SelectItem>
+                <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
                 <SelectItem value="indisponivel">Indisponíveis</SelectItem>
               </SelectContent>
             </Select>
@@ -210,7 +213,7 @@ export default function EsteirasPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>QR Code</TableHead>
+                  <TableHead>Número</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Marca / Modelo</TableHead>
                   <TableHead>Status</TableHead>
@@ -220,7 +223,22 @@ export default function EsteirasPage() {
               </TableHeader>
               <TableBody>
                 {filteredTreadmills.map((treadmill) => (
-                  <TableRow key={treadmill.id} className="group">
+                  <TableRow
+                    key={treadmill.id}
+                    className="group cursor-pointer"
+                    tabIndex={0}
+                    role="button"
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement
+                      if (target.closest('button, a')) return
+                      router.push(`/dashboard/esteiras/${treadmill.id}`)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        router.push(`/dashboard/esteiras/${treadmill.id}`)
+                      }
+                    }}
+                  >
                     <TableCell>
                       <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
                         {treadmill.qrCode}

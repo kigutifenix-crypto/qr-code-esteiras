@@ -22,6 +22,11 @@ const statusConfig: Record<
     className: 'bg-status-warning/15 text-status-warning border-status-warning/30',
     dotColor: 'bg-status-warning',
   },
+  aguardando_pecas: {
+    label: 'Aguardando Peças',
+    className: 'bg-status-info/15 text-status-info border-status-info/30',
+    dotColor: 'bg-status-info',
+  },
   indisponivel: {
     label: 'Indisponível',
     className: 'bg-status-danger/15 text-status-danger border-status-danger/30',

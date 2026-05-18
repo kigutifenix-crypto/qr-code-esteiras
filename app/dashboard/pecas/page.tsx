@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export default function PecasPage() {
+  const router = useRouter()
   const { hasPermission } = useAuth()
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
@@ -192,6 +194,7 @@ export default function PecasPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Nome</TableHead>
                   <TableHead>Código</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Qtd</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Previsão</TableHead>
@@ -200,12 +203,30 @@ export default function PecasPage() {
               </TableHeader>
               <TableBody>
                 {filteredParts.map((part) => (
-                  <TableRow key={part.id} className="group">
+                  <TableRow
+                    key={part.id}
+                    className="group cursor-pointer"
+                    tabIndex={0}
+                    role="button"
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement
+                      if (target.closest('button, a')) return
+                      router.push(`/dashboard/pecas/${part.id}/editar`)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        router.push(`/dashboard/pecas/${part.id}/editar`)
+                      }
+                    }}
+                  >
                     <TableCell className="font-medium">{part.name}</TableCell>
                     <TableCell>
                       <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
                         {part.code}
                       </code>
+                    </TableCell>
+                    <TableCell className="max-w-sm text-sm text-muted-foreground truncate">
+                      {part.notes || 'Sem descrição'}
                     </TableCell>
                     <TableCell>{part.quantity}</TableCell>
                     <TableCell>

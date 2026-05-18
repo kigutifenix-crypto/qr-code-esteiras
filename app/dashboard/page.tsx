@@ -37,6 +37,7 @@ interface DashboardStats {
     total: number
     ready: number
     maintenance: number
+    awaitingParts: number
     unavailable: number
   }
   parts: {
@@ -54,6 +55,7 @@ interface DashboardStats {
 const STATUS_COLORS = {
   ready: 'oklch(0.72 0.19 145)',
   maintenance: 'oklch(0.80 0.18 85)',
+  awaitingParts: 'oklch(0.70 0.22 175)',
   unavailable: 'oklch(0.60 0.22 25)',
 }
 
@@ -90,6 +92,7 @@ export default function DashboardPage() {
     ? [
         { name: 'Prontas', value: stats.treadmills.ready, color: STATUS_COLORS.ready },
         { name: 'Em Manutenção', value: stats.treadmills.maintenance, color: STATUS_COLORS.maintenance },
+        { name: 'Aguardando Peças', value: stats.treadmills.awaitingParts, color: STATUS_COLORS.awaitingParts },
         { name: 'Indisponíveis', value: stats.treadmills.unavailable, color: STATUS_COLORS.unavailable },
       ]
     : []
@@ -122,7 +125,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <StatsCard
           title="Total de Esteiras"
           value={stats?.treadmills.total}
@@ -145,6 +148,14 @@ export default function DashboardPage() {
           icon={Wrench}
           description="Aguardando reparo"
           variant="warning"
+        />
+        <StatsCard
+          title="Aguardando Peças"
+          value={stats?.treadmills.awaitingParts}
+          loading={loading}
+          icon={Package}
+          description="Peças pendentes"
+          variant="info"
         />
         <StatsCard
           title="Indisponíveis"
