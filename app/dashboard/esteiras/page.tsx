@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -62,17 +62,33 @@ import { ptBR } from 'date-fns/locale'
 
 export default function EsteirasPage() {
   const { hasPermission } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [treadmills, setTreadmills] = useState<Treadmill[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  
+  // Obter status da URL, se houver
+  const statusFromUrl = searchParams.get('status')
+  const status = ['all', 'pronta', 'manutencao', 'indisponivel', 'aguardando_pecas'].includes(statusFromUrl ?? '')
+    ? (statusFromUrl as TreadmillStatus | 'all')
+    : 'all'
+  
   const [filters, setFilters] = useState<TreadmillFilters>({
     search: '',
-    status: 'all',
+    status,
     hasPartsMissing: null,
     hasPartsPurchased: null,
   })
 
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+
+  // Atualizar filtros quando a URL mudar
+  useEffect(() => {
+    if (statusFromUrl && ['all', 'pronta', 'manutencao', 'indisponivel', 'aguardando_pecas'].includes(statusFromUrl)) {
+      setFilters(prev => ({ ...prev, status: statusFromUrl as TreadmillStatus | 'all' }))
+    }
+  }, [statusFromUrl])
 
   const debouncedFilters = useMemo(() => {
     return { ...filters }
@@ -122,7 +138,6 @@ export default function EsteirasPage() {
     }
   }
 
-  const router = useRouter()
   const canCreate = hasPermission('create_treadmill')
   const canEdit = hasPermission('edit_treadmill')
   const canDelete = hasPermission('delete_treadmill')
@@ -296,7 +311,10 @@ export default function EsteirasPage() {
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => setDeleteId(treadmill.id)}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setDeleteId(treadmill.id)
+                                }}
                                 className="text-destructive focus:text-destructive"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
