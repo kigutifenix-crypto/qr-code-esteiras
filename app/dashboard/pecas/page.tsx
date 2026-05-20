@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,9 +24,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/status-badge'
 import { useAuth } from '@/contexts/auth-context'
-import { subscribeAllParts, updatePart } from '@/lib/services/parts-service'
+import { subscribeAllParts, updatePart, deletePart } from '@/lib/services/parts-service'
 import type { Part, PartStatus } from '@/lib/types'
-import { Package, Plus, Search, MoreHorizontal, Eye, Edit, Check, CheckCircle2 } from 'lucide-react'
+import { Package, Plus, Search, MoreHorizontal, Eye, Edit, Check, CheckCircle2, Trash2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,11 +38,26 @@ import { ptBR } from 'date-fns/locale'
 
 export default function PecasPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { hasPermission } = useAuth()
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<PartStatus | 'all'>('all')
+  
+  // Mapear o parâmetro 'status' para o tipo PartStatus
+  const statusFromUrl = searchParams.get('status')
+  const mappedStatus: PartStatus | 'all' = 
+    statusFromUrl === 'missing' || statusFromUrl === 'faltando' ? 'faltando' :
+    statusFromUrl === 'purchased' || statusFromUrl === 'comprada' ? 'comprada' :
+    statusFromUrl === 'received' || statusFromUrl === 'recebida' ? 'recebida' :
+    'all'
+  
+  const [statusFilter, setStatusFilter] = useState<PartStatus | 'all'>(mappedStatus)
+
+  // Atualizar filtro quando a URL mudar
+  useEffect(() => {
+    setStatusFilter(mappedStatus)
+  }, [statusFromUrl])
 
   useEffect(() => {
     const unsubscribe = subscribeAllParts((data) => {
@@ -55,8 +70,26 @@ export default function PecasPage() {
 
   const canAdd = hasPermission('add_parts') || hasPermission('manage_parts')
   const canEdit = hasPermission('manage_parts') || hasPermission('add_parts')
+  const canDelete = hasPermission('manage_parts')
   const canUpdateStatus = hasPermission('manage_parts') || hasPermission('mark_purchased') || hasPermission('update_part_status')
   const [updatingPartId, setUpdatingPartId] = useState<string | null>(null)
+
+  const handleDeletePart = async (partId: string) => {
+    if (!canDelete) return
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja excluir esta peça? Esta ação não pode ser desfeita.'
+    )
+    if (!confirmed) return
+
+    try {
+      await deletePart(partId)
+      setParts((current) => current.filter((part) => part.id !== partId))
+    } catch (error) {
+      console.error('Erro ao excluir peça:', error)
+      window.alert('Não foi possível excluir a peça. Tente novamente.')
+    }
+  }
 
   const filteredParts = parts.filter((part) => {
     const matchesSearch =
@@ -219,7 +252,20 @@ export default function PecasPage() {
                       }
                     }}
                   >
-                    <TableCell className="font-medium">{part.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        {part.photoUrl ? (
+                          <img
+                            src={part.photoUrl}
+                            alt={part.name}
+                            className="h-10 w-10 rounded object-contain border border-border/30"
+                          />
+                        ) : (
+                          <Package className="h-10 w-10 rounded bg-muted/10 p-2 text-muted-foreground" />
+                        )}
+                        <span>{part.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
                         {part.code}
@@ -256,6 +302,15 @@ export default function PecasPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar Peça
                               </Link>
+                            </DropdownMenuItem>
+                          )}
+                          {canDelete && (
+                            <DropdownMenuItem
+                              onClick={() => handleDeletePart(part.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
                             </DropdownMenuItem>
                           )}
                           {canUpdateStatus && part.status !== 'comprada' && (

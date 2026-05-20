@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Loader2, Save, AlertCircle } from 'lucide-react'
 import { getMaintenance, updateMaintenance } from '@/lib/services/maintenance-service'
+import { uploadImageToCloudinary } from '@/lib/cloudinary'
 import type { MaintenanceRecord } from '@/lib/types'
 
 export default function EditarManutencaoPage() {
@@ -29,10 +30,13 @@ export default function EditarManutencaoPage() {
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [maintenance, setMaintenance] = useState<MaintenanceRecord | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     problems: '',
     diagnosis: '',
     notes: '',
+    photoUrl: '',
     status: 'em_andamento' as MaintenanceRecord['status'],
   })
 
@@ -57,7 +61,9 @@ export default function EditarManutencaoPage() {
           diagnosis: maintenanceData.diagnosis,
           notes: maintenanceData.notes,
           status: maintenanceData.status,
+          photoUrl: maintenanceData.photoUrl || '',
         })
+        setPhotoPreview(maintenanceData.photoUrl || null)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao carregar a manutenção')
       } finally {
@@ -73,6 +79,15 @@ export default function EditarManutencaoPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview)
+    }
+    setPhotoFile(file)
+    setPhotoPreview(file ? URL.createObjectURL(file) : formData.photoUrl || null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -81,11 +96,17 @@ export default function EditarManutencaoPage() {
     try {
       if (!maintenance) return
 
+      let photoUrl = formData.photoUrl || undefined
+      if (photoFile) {
+        photoUrl = await uploadImageToCloudinary(photoFile)
+      }
+
       await updateMaintenance(maintenance.id, {
         problems: formData.problems,
         diagnosis: formData.diagnosis,
         notes: formData.notes,
         status: formData.status,
+          photoUrl,
       })
 
       router.push('/dashboard/manutencao')
@@ -188,6 +209,24 @@ export default function EditarManutencaoPage() {
                 placeholder="Informações adicionais sobre a manutenção"
                 className="bg-input/50"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="photo">Foto da Manutenção</Label>
+              <input
+                id="photo"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                className="block w-full rounded border border-input bg-background px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
+              />
+              {photoPreview && (
+                <img
+                  src={photoPreview}
+                  alt="Prévia da foto da manutenção"
+                  className="h-auto max-h-80 w-full rounded object-contain border border-border/50"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>

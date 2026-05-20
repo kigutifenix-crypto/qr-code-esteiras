@@ -28,6 +28,7 @@ function snapshotToPart(id: string, data: any): Part {
         : undefined,
     supplier: data?.supplier || undefined,
     notes: data?.notes || undefined,
+    photoUrl: data?.photoUrl || undefined,
     purchasedBy: data?.purchasedBy || undefined,
     purchasedAt:
       typeof data?.purchasedAt === 'number'
@@ -78,14 +79,20 @@ export async function createPart(
   const now = Date.now()
   const partRef = push(ref(db, COLLECTIONS.PARTS))
 
-  await set(partRef, {
+  const payload: Record<string, unknown> = {
     ...data,
     expectedDelivery: data.expectedDelivery ? data.expectedDelivery.getTime() : null,
     purchasedAt: data.purchasedAt ? data.purchasedAt.getTime() : null,
     receivedAt: data.receivedAt ? data.receivedAt.getTime() : null,
     createdAt: now,
     updatedAt: now,
-  })
+  }
+
+  const sanitizedPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  )
+
+  await set(partRef, sanitizedPayload)
 
   return partRef.key ?? ''
 }

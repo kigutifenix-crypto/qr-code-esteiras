@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/auth-context'
-import { subscribeAllMaintenance } from '@/lib/services/maintenance-service'
+import { subscribeAllMaintenance, deleteMaintenance } from '@/lib/services/maintenance-service'
 import type { MaintenanceRecord } from '@/lib/types'
-import { Wrench, Plus, User, Calendar, AlertTriangle, MoreHorizontal, Edit } from 'lucide-react'
+import { Wrench, Plus, User, Calendar, AlertTriangle, MoreHorizontal, Edit, Trash2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,8 +22,12 @@ import { ptBR } from 'date-fns/locale'
 
 export default function ManutencaoPage() {
   const { hasPermission } = useAuth()
+  const searchParams = useSearchParams()
   const [records, setRecords] = useState<MaintenanceRecord[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Obter status da URL
+  const statusFromUrl = searchParams.get('status')
 
   useEffect(() => {
     const unsubscribe = subscribeAllMaintenance((data) => {
@@ -35,6 +40,24 @@ export default function ManutencaoPage() {
 
   const canCreate = hasPermission('create_maintenance')
   const canEdit = hasPermission('edit_maintenance')
+  const canDelete = hasPermission('delete_maintenance')
+
+  const handleDeleteMaintenance = async (maintenanceId: string) => {
+    if (!canDelete) return
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja excluir esta manutenção? Esta ação não pode ser desfeita.'
+    )
+    if (!confirmed) return
+
+    try {
+      await deleteMaintenance(maintenanceId)
+      setRecords((current) => current.filter((record) => record.id !== maintenanceId))
+    } catch (error) {
+      console.error('Erro ao excluir manutenção:', error)
+      window.alert('Não foi possível excluir a manutenção. Tente novamente.')
+    }
+  }
 
   const getStatusBadge = (status: MaintenanceRecord['status']) => {
     switch (status) {
@@ -49,8 +72,18 @@ export default function ManutencaoPage() {
     }
   }
 
-  const activeRecords = records.filter((r) => r.status !== 'concluida')
-  const completedRecords = records.filter((r) => r.status === 'concluida')
+  // Filtrar por status se passado na URL
+  const filteredRecords = statusFromUrl === 'active'
+    ? records.filter((r) => r.status !== 'concluida')
+    : statusFromUrl === 'completed'
+    ? records.filter((r) => r.status === 'concluida')
+    : records
+
+  const showActiveSection = statusFromUrl !== 'completed'
+  const showCompletedSection = statusFromUrl !== 'active'
+
+  const activeRecords = filteredRecords.filter((r) => r.status !== 'concluida')
+  const completedRecords = filteredRecords.filter((r) => r.status === 'concluida')
 
   return (
     <div className="space-y-6">
@@ -122,87 +155,109 @@ export default function ManutencaoPage() {
       </div>
 
       {/* Active Maintenance */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Manutenções Ativas</h2>
-        {loading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-32" />
-            ))}
-          </div>
-        ) : activeRecords.length === 0 ? (
-          <Card className="border-border/50">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Wrench className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">Nenhuma manutenção ativa</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {activeRecords.map((record) => (
-              <Card key={record.id} className="border-border/50 hover:border-primary/30 transition-colors">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-base">
-                        Manutenção #{record.id.slice(-6)}
-                      </CardTitle>
-                      <CardDescription className="flex items-center gap-2 mt-1">
-                        <User className="h-3 w-3" />
-                        {record.technicianName}
-                      </CardDescription>
+      {showActiveSection && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Manutenções Ativas</h2>
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-32" />
+              ))}
+            </div>
+          ) : activeRecords.length === 0 ? (
+            <Card className="border-border/50">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Wrench className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground">Nenhuma manutenção ativa</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {activeRecords.map((record) => (
+                <Card key={record.id} className="border-border/50 hover:border-primary/30 transition-colors">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-base">
+                          Manutenção #{record.id.slice(-6)}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2 mt-1">
+                          <User className="h-3 w-3" />
+                          {record.technicianName}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(record.status)}
+                        {(canEdit || canDelete) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canEdit && (
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/dashboard/manutencao/${record.id}/editar`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </Link>
+                                </DropdownMenuItem>
+                              )}
+                              {canDelete && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteMaintenance(record.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(record.status)}
-                      {canEdit && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/manutencao/${record.id}/editar`}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {record.photoUrl && (
+                        <div className="overflow-hidden rounded-lg border border-border/50">
+                          <img
+                            src={record.photoUrl}
+                            alt={`Foto da manutenção ${record.id}`}
+                            className="h-48 w-full object-contain bg-black/5"
+                          />
+                        </div>
                       )}
+                      <div>
+                        <p className="text-sm font-medium">Problemas:</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {record.problems}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(record.createdAt, "dd/MM/yyyy", { locale: ptBR })}
+                        </span>
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/dashboard/esteiras/${record.treadmillId}`}>
+                            Ver Esteira
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium">Problemas:</p>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {record.problems}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(record.createdAt, "dd/MM/yyyy", { locale: ptBR })}
-                      </span>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/dashboard/esteiras/${record.treadmillId}`}>
-                          Ver Esteira
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Completed Maintenance */}
-      {completedRecords.length > 0 && (
+      {showCompletedSection && completedRecords.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Manutenções Concluídas</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

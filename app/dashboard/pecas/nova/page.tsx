@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { createPart } from '@/lib/services/parts-service'
+import { uploadImageToCloudinary } from '@/lib/cloudinary'
 import { getAllTreadmills } from '@/lib/services/treadmill-service'
 import type { Treadmill } from '@/lib/types'
 import { ArrowLeft, Loader2, Package, AlertCircle } from 'lucide-react'
@@ -25,6 +26,8 @@ export default function NovaPecaPage() {
   const [loadingTreadmills, setLoadingTreadmills] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [treadmills, setTreadmills] = useState<Treadmill[]>([])
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     treadmillId: treadmillIdFromQuery,
     name: '',
@@ -41,6 +44,15 @@ export default function NovaPecaPage() {
       ...prev,
       [name]: name === 'quantity' ? Number(value) : value,
     }))
+  }
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview)
+    }
+    setPhotoFile(file)
+    setPhotoPreview(file ? URL.createObjectURL(file) : null)
   }
 
   useEffect(() => {
@@ -69,6 +81,11 @@ export default function NovaPecaPage() {
         throw new Error('Informe a esteira relacionada')
       }
 
+      let photoUrl: string | undefined
+      if (photoFile) {
+        photoUrl = await uploadImageToCloudinary(photoFile)
+      }
+
       await createPart({
         treadmillId: formData.treadmillId,
         name: formData.name,
@@ -76,6 +93,7 @@ export default function NovaPecaPage() {
         quantity: formData.quantity,
         status: 'faltando',
         notes: formData.notes || undefined,
+        photoUrl,
       })
 
       router.push(
@@ -211,6 +229,33 @@ export default function NovaPecaPage() {
                 placeholder="Informações adicionais sobre a peça"
                 className="bg-input/50"
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle>Foto da Peça</CardTitle>
+            <CardDescription>Envie uma foto ou tire uma foto diretamente do celular.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="photo">Foto</Label>
+              <input
+                id="photo"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                className="block w-full rounded border border-input bg-background px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground" 
+              />
+              {photoPreview && (
+                <img
+                  src={photoPreview}
+                  alt="Prévia da foto da peça"
+                  className="h-auto max-h-80 w-full rounded object-contain border border-border/50"
+                />
+              )}
             </div>
           </CardContent>
         </Card>

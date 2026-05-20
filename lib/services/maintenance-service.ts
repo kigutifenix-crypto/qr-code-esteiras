@@ -21,6 +21,7 @@ function snapshotToMaintenance(id: string, data: any): MaintenanceRecord {
     problems: data?.problems || '',
     diagnosis: data?.diagnosis || '',
     notes: data?.notes || '',
+    photoUrl: data?.photoUrl || undefined,
     technicianId: data?.technicianId || '',
     technicianName: data?.technicianName || '',
     partsNeeded: Array.isArray(data?.partsNeeded) ? data.partsNeeded : [],
@@ -62,11 +63,17 @@ export async function createMaintenance(
   const now = Date.now()
   const maintenanceRef = push(ref(db, COLLECTIONS.MAINTENANCE))
 
-  await set(maintenanceRef, {
+  const payload: Record<string, unknown> = {
     ...data,
     createdAt: now,
     updatedAt: now,
-  })
+  }
+
+  const sanitizedPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  )
+
+  await set(maintenanceRef, sanitizedPayload)
 
   return maintenanceRef.key ?? ''
 }
@@ -85,6 +92,10 @@ export async function updateMaintenance(
       updates[key] = value
     }
   })
+
+    if (data.photoUrl !== undefined) {
+      updates.photoUrl = data.photoUrl
+    }
 
   await update(ref(db, `${COLLECTIONS.MAINTENANCE}/${id}`), updates)
 }

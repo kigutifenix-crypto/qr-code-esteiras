@@ -53,6 +53,7 @@ export interface Part {
   expectedDelivery?: Date
   supplier?: string
   notes?: string
+  photoUrl?: string
   purchasedBy?: string
   purchasedAt?: Date
   receivedAt?: Date
@@ -67,6 +68,7 @@ export interface MaintenanceRecord {
   problems: string
   diagnosis: string
   notes: string
+  photoUrl?: string
   technicianId: string
   technicianName: string
   partsNeeded: string[]

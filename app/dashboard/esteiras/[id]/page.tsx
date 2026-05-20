@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/status-badge'
 import { useAuth } from '@/contexts/auth-context'
 import { getTreadmill } from '@/lib/services/treadmill-service'
-import { getMaintenanceByTreadmill } from '@/lib/services/maintenance-service'
-import { getPartsByTreadmill } from '@/lib/services/parts-service'
+import { deleteMaintenance, getMaintenanceByTreadmill } from '@/lib/services/maintenance-service'
+import { deletePart, getPartsByTreadmill } from '@/lib/services/parts-service'
 import type { Treadmill, MaintenanceRecord, Part } from '@/lib/types'
 import {
   ArrowLeft,
@@ -27,6 +27,7 @@ import {
   Weight,
   TrendingUp,
   FileText,
+  Trash2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -38,6 +39,8 @@ export default function EsteiraDetailPage() {
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([])
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingMaintenanceId, setDeletingMaintenanceId] = useState<string | null>(null)
+  const [deletingPartId, setDeletingPartId] = useState<string | null>(null)
 
   const id = params.id as string
 
@@ -64,6 +67,48 @@ export default function EsteiraDetailPage() {
   }, [id])
 
   const canEdit = hasPermission('edit_treadmill')
+  const canDeleteMaintenance = hasPermission('delete_maintenance')
+  const canDeleteParts = hasPermission('manage_parts')
+
+  const handleDeleteMaintenance = async (maintenanceId: string) => {
+    if (!canDeleteMaintenance) return
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja excluir esta manutenção? Esta ação não pode ser desfeita.'
+    )
+    if (!confirmed) return
+
+    try {
+      setDeletingMaintenanceId(maintenanceId)
+      await deleteMaintenance(maintenanceId)
+      setMaintenance((current) => current.filter((item) => item.id !== maintenanceId))
+    } catch (error) {
+      console.error('Erro ao excluir manutenção:', error)
+      window.alert('Não foi possível excluir a manutenção. Tente novamente.')
+    } finally {
+      setDeletingMaintenanceId(null)
+    }
+  }
+
+  const handleDeletePart = async (partId: string) => {
+    if (!canDeleteParts) return
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja excluir esta peça? Esta ação não pode ser desfeita.'
+    )
+    if (!confirmed) return
+
+    try {
+      setDeletingPartId(partId)
+      await deletePart(partId)
+      setParts((current) => current.filter((item) => item.id !== partId))
+    } catch (error) {
+      console.error('Erro ao excluir peça:', error)
+      window.alert('Não foi possível excluir a peça. Tente novamente.')
+    } finally {
+      setDeletingPartId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -283,53 +328,93 @@ export default function EsteiraDetailPage() {
           ) : (
             <div className="space-y-3">
               {maintenance.map((record) => (
-                <Card key={record.id} className="border-border/50">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-base">
-                          Manutenção - {format(record.createdAt, 'dd/MM/yyyy')}
-                        </CardTitle>
-                        <CardDescription>
-                          Técnico: {record.technicianName}
-                        </CardDescription>
-                      </div>
-                      <Badge
-                        variant={
-                          record.status === 'concluida'
-                            ? 'default'
-                            : record.status === 'aguardando_pecas'
-                            ? 'secondary'
-                            : 'outline'
-                        }
-                      >
-                        {record.status === 'concluida'
-                          ? 'Concluída'
-                          : record.status === 'aguardando_pecas'
-                          ? 'Aguardando Peças'
-                          : 'Em Andamento'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="font-medium">Problemas: </span>
-                        <span className="text-muted-foreground">
-                          {record.problems}
-                        </span>
-                      </div>
-                      {record.diagnosis && (
-                        <div>
-                          <span className="font-medium">Diagnóstico: </span>
-                          <span className="text-muted-foreground">
-                            {record.diagnosis}
-                          </span>
+                <div key={record.id} className="relative">
+                  <Link
+                    href={`/dashboard/manutencao/${record.id}/editar`}
+                    className="block rounded-xl border border-border/50 bg-card transition hover:border-primary hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                  >
+                    <Card className="border-0 bg-transparent">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <CardTitle className="text-base">
+                              Manutenção - {format(record.createdAt, 'dd/MM/yyyy')}
+                            </CardTitle>
+                            <CardDescription>
+                              Técnico: {record.technicianName}
+                            </CardDescription>
+                          </div>
+                          <Badge
+                            variant={
+                              record.status === 'concluida'
+                                ? 'default'
+                                : record.status === 'aguardando_pecas'
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                          >
+                            {record.status === 'concluida'
+                              ? 'Concluída'
+                              : record.status === 'aguardando_pecas'
+                              ? 'Aguardando Peças'
+                              : 'Em Andamento'}
+                          </Badge>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </CardHeader>
+                      <CardContent>
+                        {record.photoUrl && (
+                          <div className="mb-4 overflow-hidden rounded-lg border border-border/30 bg-muted">
+                            <img
+                              src={record.photoUrl}
+                              alt={`Foto da manutenção ${record.id}`}
+                              className="w-full h-64 object-contain"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="font-medium">Problemas: </span>
+                            <span className="text-muted-foreground">
+                              {record.problems}
+                            </span>
+                          </div>
+                          {record.diagnosis && (
+                            <div>
+                              <span className="font-medium">Diagnóstico: </span>
+                              <span className="text-muted-foreground">
+                                {record.diagnosis}
+                              </span>
+                            </div>
+                          )}
+                          {record.notes && (
+                            <div>
+                              <span className="font-medium">Observações: </span>
+                              <span className="text-muted-foreground">
+                                {record.notes}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  {canDeleteMaintenance && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        handleDeleteMaintenance(record.id)
+                      }}
+                      className="absolute right-3 bottom-3 z-10"
+                      disabled={deletingMaintenanceId === record.id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -359,62 +444,98 @@ export default function EsteiraDetailPage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {parts.map((part) => (
-                <Card key={part.id} className="border-border/50">
-                  <CardContent className="space-y-3 pt-4">
-                    <div className="flex justify-between items-start gap-4">
-                      <div>
-                        <p className="font-medium">{part.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Código: {part.code}
-                        </p>
-                      </div>
-                      <StatusBadge status={part.status} size="sm" />
-                    </div>
+                <div key={part.id} className="relative">
+                  <Link
+                    href={`/dashboard/pecas/${part.id}/editar`}
+                    className="block rounded-xl border border-border/50 bg-card transition hover:border-primary hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                  >
+                    <Card className="border-0 bg-transparent">
+                      <CardContent className="space-y-3 pt-4">
+                        {part.photoUrl ? (
+                          <div className="overflow-hidden rounded-lg border border-border/30 bg-muted">
+                            <img
+                              src={part.photoUrl}
+                              alt={`Foto da peça ${part.name}`}
+                              className="w-full h-56 object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-56 items-center justify-center rounded-lg border border-border/30 bg-muted text-sm text-muted-foreground">
+                            Sem foto
+                          </div>
+                        )}
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <p className="font-medium">{part.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Código: {part.code}
+                            </p>
+                          </div>
+                          <StatusBadge status={part.status} size="sm" />
+                        </div>
 
-                    <div className="grid gap-2 text-sm text-muted-foreground">
-                      <div>
-                        <span className="font-medium text-foreground">Quantidade: </span>
-                        {part.quantity}
-                      </div>
-                      {part.supplier && (
-                        <div>
-                          <span className="font-medium text-foreground">Fornecedor: </span>
-                          {part.supplier}
+                        <div className="grid gap-2 text-sm text-muted-foreground">
+                          <div>
+                            <span className="font-medium text-foreground">Quantidade: </span>
+                            {part.quantity}
+                          </div>
+                          {part.supplier && (
+                            <div>
+                              <span className="font-medium text-foreground">Fornecedor: </span>
+                              {part.supplier}
+                            </div>
+                          )}
+                          {part.purchasedBy && (
+                            <div>
+                              <span className="font-medium text-foreground">Comprada por: </span>
+                              {part.purchasedBy}
+                            </div>
+                          )}
+                          {part.expectedDelivery && (
+                            <div>
+                              <span className="font-medium text-foreground">Previsão de entrega: </span>
+                              {format(part.expectedDelivery, 'dd/MM/yyyy')}
+                            </div>
+                          )}
+                          {part.purchasedAt && (
+                            <div>
+                              <span className="font-medium text-foreground">Data de compra: </span>
+                              {format(part.purchasedAt, 'dd/MM/yyyy')}
+                            </div>
+                          )}
+                          {part.receivedAt && (
+                            <div>
+                              <span className="font-medium text-foreground">Recebida em: </span>
+                              {format(part.receivedAt, 'dd/MM/yyyy')}
+                            </div>
+                          )}
+                          {part.notes && (
+                            <div>
+                              <span className="font-medium text-foreground">Observações: </span>
+                              {part.notes}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {part.purchasedBy && (
-                        <div>
-                          <span className="font-medium text-foreground">Comprada por: </span>
-                          {part.purchasedBy}
-                        </div>
-                      )}
-                      {part.expectedDelivery && (
-                        <div>
-                          <span className="font-medium text-foreground">Previsão de entrega: </span>
-                          {format(part.expectedDelivery, 'dd/MM/yyyy')}
-                        </div>
-                      )}
-                      {part.purchasedAt && (
-                        <div>
-                          <span className="font-medium text-foreground">Data de compra: </span>
-                          {format(part.purchasedAt, 'dd/MM/yyyy')}
-                        </div>
-                      )}
-                      {part.receivedAt && (
-                        <div>
-                          <span className="font-medium text-foreground">Recebida em: </span>
-                          {format(part.receivedAt, 'dd/MM/yyyy')}
-                        </div>
-                      )}
-                      {part.notes && (
-                        <div>
-                          <span className="font-medium text-foreground">Observações: </span>
-                          {part.notes}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  {canDeleteParts && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        handleDeletePart(part.id)
+                      }}
+                      className="absolute right-3 top-3 z-10"
+                      disabled={deletingPartId === part.id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}

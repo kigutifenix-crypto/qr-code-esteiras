@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { createMaintenance } from '@/lib/services/maintenance-service'
+import { uploadImageToCloudinary } from '@/lib/cloudinary'
 import { getAllTreadmills } from '@/lib/services/treadmill-service'
 import type { Treadmill } from '@/lib/types'
 import { ArrowLeft, Loader2, Wrench, AlertCircle } from 'lucide-react'
@@ -24,6 +25,8 @@ export default function NovaManutencaoPage() {
   const [loading, setLoading] = useState(false)
   const [loadingTreadmills, setLoadingTreadmills] = useState(true)
   const [treadmills, setTreadmills] = useState<Treadmill[]>([])
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     treadmillId: treadmillIdFromQuery,
@@ -55,6 +58,15 @@ export default function NovaManutencaoPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview)
+    }
+    setPhotoFile(file)
+    setPhotoPreview(file ? URL.createObjectURL(file) : null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -68,11 +80,17 @@ export default function NovaManutencaoPage() {
         throw new Error('Usuário não autenticado')
       }
 
+      let photoUrl: string | undefined
+      if (photoFile) {
+        photoUrl = await uploadImageToCloudinary(photoFile)
+      }
+
       await createMaintenance({
         treadmillId: formData.treadmillId,
         problems: formData.problems,
         diagnosis: formData.diagnosis,
         notes: formData.notes,
+        photoUrl,
         technicianId: user.id,
         technicianName: user.name,
         partsNeeded: [],
@@ -189,6 +207,24 @@ export default function NovaManutencaoPage() {
                 placeholder="Informações adicionais sobre a manutenção"
                 className="bg-input/50"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="photo">Foto da Manutenção</Label>
+              <input
+                id="photo"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                className="block w-full rounded border border-input bg-background px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
+              />
+              {photoPreview && (
+                <img
+                  src={photoPreview}
+                  alt="Prévia da foto da manutenção"
+                  className="h-auto max-h-80 w-full rounded object-contain border border-border/50"
+                />
+              )}
             </div>
           </CardContent>
         </Card>

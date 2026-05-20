@@ -132,6 +132,7 @@ export default function DashboardPage() {
           loading={loading}
           icon={Dumbbell}
           description="Equipamentos cadastrados"
+          href="/dashboard/esteiras"
         />
         <StatsCard
           title="Prontas para Venda"
@@ -140,6 +141,7 @@ export default function DashboardPage() {
           icon={CheckCircle}
           description="Disponíveis para venda"
           variant="success"
+          href="/dashboard/esteiras?status=pronta"
         />
         <StatsCard
           title="Em Manutenção"
@@ -148,6 +150,7 @@ export default function DashboardPage() {
           icon={Wrench}
           description="Aguardando reparo"
           variant="warning"
+          href="/dashboard/esteiras?status=manutencao"
         />
         <StatsCard
           title="Aguardando Peças"
@@ -156,6 +159,7 @@ export default function DashboardPage() {
           icon={Package}
           description="Peças pendentes"
           variant="info"
+          href="/dashboard/esteiras?status=aguardando_pecas"
         />
         <StatsCard
           title="Indisponíveis"
@@ -164,6 +168,7 @@ export default function DashboardPage() {
           icon={XCircle}
           description="Fora de operação"
           variant="danger"
+          href="/dashboard/esteiras?status=indisponivel"
         />
       </div>
 
@@ -176,6 +181,7 @@ export default function DashboardPage() {
           icon={Package}
           description="Aguardando compra"
           variant="danger"
+          href="/dashboard/pecas?status=faltando"
         />
         <StatsCard
           title="Peças Compradas"
@@ -184,6 +190,7 @@ export default function DashboardPage() {
           icon={ShoppingCart}
           description="Em trânsito"
           variant="info"
+          href="/dashboard/pecas?status=comprada"
         />
         <StatsCard
           title="Manutenções Ativas"
@@ -192,6 +199,7 @@ export default function DashboardPage() {
           icon={Activity}
           description="Em andamento"
           variant="warning"
+          href="/dashboard/manutencao?status=active"
         />
       </div>
 
@@ -324,6 +332,7 @@ interface StatsCardProps {
   icon: React.ElementType
   description: string
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'info'
+  href?: string
 }
 
 function StatsCard({
@@ -333,6 +342,7 @@ function StatsCard({
   icon: Icon,
   description,
   variant = 'default',
+  href,
 }: StatsCardProps) {
   const variantStyles = {
     default: 'bg-primary/10 text-primary',
@@ -342,8 +352,8 @@ function StatsCard({
     info: 'bg-status-info/10 text-status-info',
   }
 
-  return (
-    <Card className="border-border/50 transition-all hover:border-primary/30">
+  const cardContent = (
+    <Card className="border-border/50 transition-all hover:border-primary/30 cursor-pointer">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
@@ -362,4 +372,10 @@ function StatsCard({
       </CardContent>
     </Card>
   )
+
+  if (href) {
+    return <Link href={href}>{cardContent}</Link>
+  }
+
+  return cardContent
 }
