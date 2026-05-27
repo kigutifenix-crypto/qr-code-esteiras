@@ -207,11 +207,11 @@ export default function QRCodePage() {
               <StatusBadge status={treadmill.status} />
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 relative">
             {/* QR Code */}
             <div
               ref={qrRef}
-              className="bg-white p-6 rounded-lg flex items-center justify-center"
+              className="bg-white p-6 rounded-lg flex items-center justify-center z-0"
             >
               <QRCodeComponent
                 value={qrUrl}
@@ -237,7 +237,7 @@ export default function QRCodePage() {
                 variant="outline"
                 size="icon"
                 onClick={handleCopyUrl}
-                className="shrink-0"
+                className="shrink-0 z-10"
               >
                 {copied ? (
                   <Check className="h-4 w-4 text-status-success" />
@@ -248,7 +248,7 @@ export default function QRCodePage() {
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 z-10">
               <Button variant="outline" onClick={handleDownload}>
                 <Download className="mr-2 h-4 w-4" />
                 Baixar

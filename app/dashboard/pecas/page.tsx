@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/status-badge'
 import { useAuth } from '@/contexts/auth-context'
 import { subscribeAllParts, updatePart, deletePart } from '@/lib/services/parts-service'
+import { getAllTreadmills } from '@/lib/services/treadmill-service'
 import type { Part, PartStatus } from '@/lib/types'
 import { Package, Plus, Search, MoreHorizontal, Eye, Edit, Check, CheckCircle2, Trash2 } from 'lucide-react'
 import {
@@ -43,6 +44,7 @@ export default function PecasPage() {
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [treadmillNames, setTreadmillNames] = useState<Record<string, string>>({})
   
   // Mapear o parâmetro 'status' para o tipo PartStatus
   const statusFromUrl = searchParams.get('status')
@@ -66,6 +68,23 @@ export default function PecasPage() {
     })
 
     return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const fetchTreadmills = async () => {
+      try {
+        const data = await getAllTreadmills()
+        const names = data.reduce<Record<string, string>>((acc, treadmill) => {
+          acc[treadmill.id] = treadmill.name || treadmill.qrCode || treadmill.id
+          return acc
+        }, {})
+        setTreadmillNames(names)
+      } catch (err) {
+        console.error('Erro ao carregar esteiras:', err)
+      }
+    }
+
+    fetchTreadmills()
   }, [])
 
   const canAdd = hasPermission('add_parts') || hasPermission('manage_parts')
@@ -92,9 +111,10 @@ export default function PecasPage() {
   }
 
   const filteredParts = parts.filter((part) => {
+    const treadmillName = treadmillNames[part.treadmillId] || part.treadmillId || ''
     const matchesSearch =
       part.name.toLowerCase().includes(search.toLowerCase()) ||
-      part.code.toLowerCase().includes(search.toLowerCase())
+      treadmillName.toLowerCase().includes(search.toLowerCase())
     const matchesStatus = statusFilter === 'all' || part.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -226,7 +246,7 @@ export default function PecasPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Nome</TableHead>
-                  <TableHead>Código</TableHead>
+                  <TableHead>Esteira</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Qtd</TableHead>
                   <TableHead>Status</TableHead>
@@ -267,9 +287,15 @@ export default function PecasPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
-                        {part.code}
-                      </code>
+                      {part.treadmillId ? (
+                        <Link href={`/dashboard/esteiras/${part.treadmillId}`}>
+                          <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
+                            {treadmillNames[part.treadmillId] || part.treadmillId}
+                          </code>
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-sm text-sm text-muted-foreground truncate">
                       {part.notes || 'Sem descrição'}

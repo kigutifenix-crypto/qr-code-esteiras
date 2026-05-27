@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/auth-context'
 import { subscribeAllMaintenance, deleteMaintenance } from '@/lib/services/maintenance-service'
+import { createLog } from '@/lib/services/logs-service'
 import type { MaintenanceRecord } from '@/lib/types'
 import { Wrench, Plus, User, Calendar, AlertTriangle, MoreHorizontal, Edit, Trash2 } from 'lucide-react'
 import {
@@ -21,7 +22,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export default function ManutencaoPage() {
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const searchParams = useSearchParams()
   const [records, setRecords] = useState<MaintenanceRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +54,18 @@ export default function ManutencaoPage() {
     try {
       await deleteMaintenance(maintenanceId)
       setRecords((current) => current.filter((record) => record.id !== maintenanceId))
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'delete',
+          entity: 'maintenance',
+          entityId: maintenanceId,
+          details: `Deleted maintenance ${maintenanceId}`,
+        })
+      } catch (e) {
+        console.warn('Failed to write maintenance delete log', e)
+      }
     } catch (error) {
       console.error('Erro ao excluir manutenção:', error)
       window.alert('Não foi possível excluir a manutenção. Tente novamente.')
@@ -262,21 +275,23 @@ export default function ManutencaoPage() {
           <h2 className="text-lg font-semibold">Manutenções Concluídas</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {completedRecords.slice(0, 6).map((record) => (
-              <Card key={record.id} className="border-border/50 opacity-75">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-sm">
-                      Manutenção #{record.id.slice(-6)}
-                    </CardTitle>
-                    {getStatusBadge(record.status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    {record.technicianName} - {format(record.createdAt, "dd/MM/yyyy")}
-                  </p>
-                </CardContent>
-              </Card>
+              <Link key={record.id} href={`/dashboard/manutencao/${record.id}`} className="block">
+                <Card className="border-border/50 opacity-90 hover:opacity-100 hover:shadow-sm transition">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-sm">
+                        Manutenção #{record.id.slice(-6)}
+                      </CardTitle>
+                      {getStatusBadge(record.status)}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">
+                      {record.technicianName} - {format(record.createdAt, "dd/MM/yyyy")}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>

@@ -12,8 +12,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { createMaintenance } from '@/lib/services/maintenance-service'
+import { createLog } from '@/lib/services/logs-service'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
-import { getAllTreadmills } from '@/lib/services/treadmill-service'
+import { getAllTreadmills, getTreadmill } from '@/lib/services/treadmill-service'
 import type { Treadmill } from '@/lib/types'
 import { ArrowLeft, Loader2, Wrench, AlertCircle } from 'lucide-react'
 
@@ -40,7 +41,9 @@ export default function NovaManutencaoPage() {
       try {
         setLoadingTreadmills(true)
         const data = await getAllTreadmills()
-        setTreadmills(data)
+        // Filtrar esteiras vendidas - não podem ter manutenção
+        const availableTreadmills = data.filter(t => t.status !== 'vendido')
+        setTreadmills(availableTreadmills)
       } catch (err) {
         console.error('Erro carregando esteiras:', err)
       } finally {
@@ -76,6 +79,16 @@ export default function NovaManutencaoPage() {
       if (!formData.treadmillId) {
         throw new Error('Informe a esteira relacionada')
       }
+
+      // Validar que a esteira não foi vendida
+      const selectedTreadmill = await getTreadmill(formData.treadmillId)
+      if (!selectedTreadmill) {
+        throw new Error('Esteira não encontrada')
+      }
+      if (selectedTreadmill.status === 'vendido') {
+        throw new Error('Não é possível criar manutenção para esteiras vendidas')
+      }
+
       if (!user) {
         throw new Error('Usuário não autenticado')
       }
@@ -102,6 +115,18 @@ export default function NovaManutencaoPage() {
           ? `/dashboard/esteiras/${formData.treadmillId}`
           : '/dashboard/manutencao'
       )
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'create',
+          entity: 'maintenance',
+          entityId: formData.treadmillId,
+          details: `Created maintenance for treadmill ${formData.treadmillId}`,
+        })
+      } catch (e) {
+        console.warn('Failed to write maintenance creation log', e)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao registrar manutenção')
     } finally {
@@ -132,6 +157,13 @@ export default function NovaManutencaoPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        <Alert className="bg-blue-500/10 border-blue-500/30">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-700">
+            Esteiras com status "Vendido" não aparecem na lista, pois não podem receber novas manutenções.
+          </AlertDescription>
+        </Alert>
 
         <Card className="border-border/50">
           <CardHeader>

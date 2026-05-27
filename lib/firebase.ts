@@ -41,4 +41,7 @@ export const COLLECTIONS = {
   PARTS: 'parts',
   LOGS: 'logs',
   NOTIFICATIONS: 'notifications',
+  ARCHIVE_TREADMILLS: 'archive_treadmills',
+  ARCHIVE_MAINTENANCE: 'archive_maintenance',
+  ARCHIVE_PARTS: 'archive_parts',
 } as const

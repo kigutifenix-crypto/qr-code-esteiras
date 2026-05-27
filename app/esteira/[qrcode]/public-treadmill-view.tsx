@@ -22,7 +22,6 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Home,
   LogIn,
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -44,9 +43,14 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
       try {
         const treadmillData = await getTreadmillByQRCode(qrCode.trim().toUpperCase())
 
-        if (treadmillData) {
-          setTreadmill(treadmillData)
+        if (!treadmillData) {
+          setError(true)
+          return
+        }
 
+        setTreadmill(treadmillData)
+
+        try {
           const [maintenanceData, partsData] = await Promise.all([
             getMaintenanceByTreadmill(treadmillData.id),
             getPartsByTreadmill(treadmillData.id),
@@ -54,11 +58,13 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
 
           setMaintenance(maintenanceData)
           setParts(partsData)
-        } else {
-          setError(true)
+        } catch (innerError) {
+          console.warn('Falha ao carregar histórico de manutenção ou peças:', innerError)
+          setMaintenance([])
+          setParts([])
         }
       } catch (err) {
-        console.error('Error loading treadmill:', err)
+        console.error('Erro ao carregar a esteira:', err)
         setError(true)
       } finally {
         setLoading(false)
@@ -133,12 +139,6 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
                 {treadmill.qrCode}
               </Badge>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/">
-                    <Home className="h-4 w-4" />
-                    <span className="hidden sm:inline">Voltar</span>
-                  </Link>
-                </Button>
                 <Button size="sm" asChild>
                   <Link href="/login">
                     <LogIn className="h-4 w-4" />
@@ -196,27 +196,7 @@ export function PublicTreadmillView({ qrCode }: PublicTreadmillViewProps) {
           </CardContent>
         </Card>
 
-        {/* Access System Card */}
-        <Card className="border-border/50 bg-primary/5 border-primary/30">
-          <CardHeader>
-            <CardTitle className="text-base">Acesso ao Sistema Completo</CardTitle>
-            <CardDescription>
-              Faça login para visualizar detalhes completos, histórico de manutenção e gerenciar esta esteira
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex gap-2">
-            <Button asChild className="flex-1">
-              <Link href={`/dashboard/esteiras/${treadmill.id}`}>
-                Ver Esteira Completa
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/login">
-                Fazer Login
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Login disponível na navbar; acesso completo removido desta view */}
 
         {/* Treadmill Info */}
         <Card className="border-border/50">

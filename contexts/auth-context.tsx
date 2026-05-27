@@ -33,13 +33,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'manage_parts', 'view_all', 'export_data'
   ],
   tecnico: [
+    'view_dashboard',
     'create_treadmill', 'edit_treadmill',
     'create_maintenance', 'edit_maintenance',
     'add_parts', 'upload_photos', 'update_status', 'view_treadmills'
   ],
   compras: [
-    'view_parts', 'mark_purchased', 'set_delivery_date',
-    'update_part_status', 'view_purchase_history'
+    'view_treadmills', 'view_parts', 'view_missing_parts', 'edit_parts', 
+    'add_parts', 'manage_parts', 'delete_parts', 'update_part_status'
   ],
   leitor: [
     'view_treadmills', 'search_treadmills', 'scan_qr', 'view_status'

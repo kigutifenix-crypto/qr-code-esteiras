@@ -18,8 +18,11 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Loader2, Save, AlertCircle } from 'lucide-react'
+import { format } from 'date-fns'
 import { getTreadmill, updateTreadmill } from '@/lib/services/treadmill-service'
-import type { TreadmillStatus } from '@/lib/types'
+import { useAuth } from '@/contexts/auth-context'
+import { createLog } from '@/lib/services/logs-service'
+import type { TreadmillStatus, DeliveryStatus } from '@/lib/types'
 
 type TreadmillForm = {
   name: string
@@ -34,6 +37,9 @@ type TreadmillForm = {
   maxSpeed: string
   incline: string
   status: TreadmillStatus
+  orderNumber: string
+  deliveryStatus?: DeliveryStatus
+  saleDate?: string
 }
 
 export default function EditarEsteiraPage() {
@@ -52,6 +58,9 @@ export default function EditarEsteiraPage() {
     maxSpeed: '',
     incline: '',
     status: 'pronta',
+    orderNumber: '',
+    deliveryStatus: undefined,
+    saleDate: undefined,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -59,6 +68,7 @@ export default function EditarEsteiraPage() {
   const [notFound, setNotFound] = useState(false)
 
   const id = params.id as string
+  const { user } = useAuth()
 
   useEffect(() => {
     async function loadTreadmill() {
@@ -74,6 +84,8 @@ export default function EditarEsteiraPage() {
           return
         }
 
+        const formatDateInput = (d?: Date) => (d ? format(d, 'yyyy-MM-dd') : '')
+
         setFormData({
           name: treadmill.name,
           brand: treadmill.brand,
@@ -87,6 +99,9 @@ export default function EditarEsteiraPage() {
           maxSpeed: treadmill.maxSpeed,
           incline: treadmill.incline,
           status: treadmill.status,
+          orderNumber: treadmill.orderNumber || '',
+          deliveryStatus: treadmill.deliveryStatus || undefined,
+          saleDate: treadmill.saleDate ? formatDateInput(treadmill.saleDate) : undefined,
         })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao carregar a esteira')
@@ -110,6 +125,13 @@ export default function EditarEsteiraPage() {
     setSaving(true)
     setError(null)
 
+    // Validar que orderNumber é obrigatório quando status é vendido
+    if (formData.status === 'vendido' && !formData.orderNumber.trim()) {
+      setError('Número do pedido é obrigatório para esteiras vendidas')
+      setSaving(false)
+      return
+    }
+
     try {
       await updateTreadmill(id, {
         name: formData.name,
@@ -124,9 +146,24 @@ export default function EditarEsteiraPage() {
         maxSpeed: formData.maxSpeed,
         incline: formData.incline,
         status: formData.status,
+        orderNumber: formData.orderNumber || undefined,
+        deliveryStatus: formData.deliveryStatus || undefined,
+        saleDate: formData.saleDate ? new Date(formData.saleDate) : undefined,
       })
 
       router.push(`/dashboard/esteiras/${id}`)
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'update',
+          entity: 'treadmill',
+          entityId: id,
+          details: JSON.stringify({ ...formData }),
+        })
+      } catch (e) {
+        console.warn('Failed to write update log', e)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar a esteira')
     } finally {
@@ -274,9 +311,64 @@ export default function EditarEsteiraPage() {
                   <SelectItem value="manutencao">Em Manutenção</SelectItem>
                   <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
                   <SelectItem value="indisponivel">Indisponível</SelectItem>
+                  <SelectItem value="vendido">Vendido</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {formData.status === 'vendido' && (
+              <div className="space-y-2">
+                <Label htmlFor="orderNumber">Número do Pedido *</Label>
+                <Input
+                  id="orderNumber"
+                  name="orderNumber"
+                  value={formData.orderNumber}
+                  onChange={handleChange}
+                  placeholder="Ex: PED-2024-001"
+                  required
+                  className="bg-input/50"
+                />
+                <p className="text-xs text-muted-foreground">Campo obrigatório quando o status é "Vendido"</p>
+              </div>
+            )}
+
+            {formData.status === 'vendido' && (
+              <div className="space-y-2">
+                <Label htmlFor="deliveryStatus">Status de Entrega</Label>
+                <Select
+                  value={formData.deliveryStatus}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, deliveryStatus: value as DeliveryStatus }))
+                  }
+                >
+                  <SelectTrigger className="bg-input/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_transito">Em Trânsito</SelectItem>
+                    <SelectItem value="entregue">Entregue</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Informe o status de entrega da esteira vendida</p>
+              </div>
+            )}
+
+            {formData.status === 'vendido' && (
+              <div className="space-y-2">
+                <Label htmlFor="saleDate">Data da Venda</Label>
+                <Input
+                  id="saleDate"
+                  name="saleDate"
+                  type="date"
+                  value={formData.saleDate || ''}
+                  onChange={handleChange}
+                  className="bg-input/50"
+                />
+                <p className="text-xs text-muted-foreground">Opcional: ajuste a data da venda, se necessário</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -14,9 +14,11 @@ export interface User {
 }
 
 // Treadmill status
-export type TreadmillStatus = 'pronta' | 'manutencao' | 'indisponivel' | 'aguardando_pecas'
+export type TreadmillStatus = 'pronta' | 'manutencao' | 'indisponivel' | 'aguardando_pecas' | 'vendido'
 
 // Treadmill type
+export type DeliveryStatus = 'pendente' | 'em_transito' | 'entregue' | 'cancelado'
+
 export interface Treadmill {
   id: string
   qrCode: string
@@ -33,10 +35,18 @@ export interface Treadmill {
   incline: string
   photos: string[]
   status: TreadmillStatus
+  orderNumber?: string
+  deliveryStatus?: DeliveryStatus
+  saleDate?: Date
   createdAt: Date
   updatedAt: Date
   createdBy: string
   createdByName: string
+}
+
+export interface ArchivedTreadmill extends Treadmill {
+  originalId: string
+  archivedAt: Date
 }
 
 // Part status
@@ -190,6 +200,8 @@ export function getStatusColor(status: TreadmillStatus): string {
       return 'bg-status-warning text-status-warning'
     case 'indisponivel':
       return 'bg-status-danger text-status-danger'
+    case 'vendido':
+      return 'bg-blue-500/15 text-blue-600'
     default:
       return 'bg-muted text-muted-foreground'
   }
@@ -204,6 +216,8 @@ export function getStatusLabel(status: TreadmillStatus): string {
       return 'Em Manutenção'
     case 'indisponivel':
       return 'Indisponível'
+    case 'vendido':
+      return 'Vendido'
     default:
       return 'Desconhecido'
   }

@@ -70,7 +70,7 @@ export default function ScannerPage() {
 
             <div className="flex gap-2">
               <Input
-                placeholder="Ex: FNX-XXXXX-XXXXXX"
+                placeholder="Ex: 1234ABCD ou 1A2B3C4D"
                 value={qrCode}
                 onChange={(e) => setQrCode(e.target.value.toUpperCase())}
                 className="bg-input/50 font-mono"
@@ -86,7 +86,7 @@ export default function ScannerPage() {
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              O código começa com FNX- seguido de caracteres alfanuméricos
+              Digite o código impresso abaixo do QR Code da esteira
             </p>
           </form>
         </CardContent>
@@ -108,7 +108,7 @@ export default function ScannerPage() {
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium shrink-0">
               2
             </span>
-            <p>Digite o código que aparece abaixo do QR Code (ex: FNX-...)</p>
+            <p>Digite o código que aparece abaixo do QR Code</p>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium shrink-0">

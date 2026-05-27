@@ -19,7 +19,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Loader2, Save, AlertCircle } from 'lucide-react'
 import { getMaintenance, updateMaintenance } from '@/lib/services/maintenance-service'
-import { uploadImageToCloudinary } from '@/lib/cloudinary'
+import { useAuth } from '@/contexts/auth-context'
+import { createLog } from '@/lib/services/logs-service'
+import { getTreadmill } from '@/lib/services/treadmill-service'
+import { deleteImageFromCloudinary, uploadImageToCloudinary } from '@/lib/cloudinary'
 import type { MaintenanceRecord } from '@/lib/types'
 
 export default function EditarManutencaoPage() {
@@ -29,6 +32,7 @@ export default function EditarManutencaoPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [isSoldTreadmill, setIsSoldTreadmill] = useState(false)
   const [maintenance, setMaintenance] = useState<MaintenanceRecord | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -41,6 +45,7 @@ export default function EditarManutencaoPage() {
   })
 
   const id = params.id as string
+  const { user } = useAuth()
 
   useEffect(() => {
     async function loadMaintenance() {
@@ -52,6 +57,22 @@ export default function EditarManutencaoPage() {
         const maintenanceData = await getMaintenance(id)
         if (!maintenanceData) {
           setNotFound(true)
+          return
+        }
+
+        // Verificar se a esteira foi vendida
+        const treadmill = await getTreadmill(maintenanceData.treadmillId)
+        if (treadmill?.status === 'vendido') {
+          setIsSoldTreadmill(true)
+          setMaintenance(maintenanceData)
+          setFormData({
+            problems: maintenanceData.problems,
+            diagnosis: maintenanceData.diagnosis,
+            notes: maintenanceData.notes,
+            status: maintenanceData.status,
+            photoUrl: maintenanceData.photoUrl || '',
+          })
+          setPhotoPreview(maintenanceData.photoUrl || null)
           return
         }
 
@@ -97,6 +118,8 @@ export default function EditarManutencaoPage() {
       if (!maintenance) return
 
       let photoUrl = formData.photoUrl || undefined
+      const previousPhotoUrl = maintenance.photoUrl
+
       if (photoFile) {
         photoUrl = await uploadImageToCloudinary(photoFile)
       }
@@ -106,10 +129,26 @@ export default function EditarManutencaoPage() {
         diagnosis: formData.diagnosis,
         notes: formData.notes,
         status: formData.status,
-          photoUrl,
+        photoUrl,
       })
 
+      if (photoFile && previousPhotoUrl && previousPhotoUrl !== photoUrl) {
+        await deleteImageFromCloudinary(previousPhotoUrl)
+      }
+
       router.push('/dashboard/manutencao')
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'update',
+          entity: 'maintenance',
+          entityId: maintenance.id,
+          details: JSON.stringify({ ...formData }),
+        })
+      } catch (e) {
+        console.warn('Failed to write maintenance update log', e)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar a manutenção')
     } finally {
@@ -163,6 +202,14 @@ export default function EditarManutencaoPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {isSoldTreadmill && (
+          <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Esta esteira foi vendida. O histórico de manutenção é mantido, mas não é possível fazer novas edições.
+            </AlertDescription>
+          </Alert>
+        )}
         {error && (
           <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
             <AlertCircle className="h-4 w-4" />
@@ -184,6 +231,7 @@ export default function EditarManutencaoPage() {
                 value={formData.problems}
                 onChange={handleChange}
                 placeholder="Descreva os problemas identificados"
+                disabled={isSoldTreadmill}
                 required
                 className="bg-input/50"
               />
@@ -196,6 +244,7 @@ export default function EditarManutencaoPage() {
                 value={formData.diagnosis}
                 onChange={handleChange}
                 placeholder="Informe o diagnóstico atual"
+                disabled={isSoldTreadmill}
                 className="bg-input/50"
               />
             </div>
@@ -207,6 +256,7 @@ export default function EditarManutencaoPage() {
                 value={formData.notes}
                 onChange={handleChange}
                 placeholder="Informações adicionais sobre a manutenção"
+                disabled={isSoldTreadmill}
                 className="bg-input/50"
               />
             </div>
@@ -218,6 +268,7 @@ export default function EditarManutencaoPage() {
                 accept="image/*"
                 capture="environment"
                 onChange={handlePhotoChange}
+                disabled={isSoldTreadmill}
                 className="block w-full rounded border border-input bg-background px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
               />
               {photoPreview && (
@@ -238,6 +289,7 @@ export default function EditarManutencaoPage() {
                     status: value as MaintenanceRecord['status'],
                   }))
                 }
+                disabled={isSoldTreadmill}
               >
                 <SelectTrigger className="bg-input/50">
                   <SelectValue />
@@ -256,7 +308,7 @@ export default function EditarManutencaoPage() {
           <Button variant="secondary" asChild>
             <Link href="/dashboard/manutencao">Cancelar</Link>
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving || isSoldTreadmill}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

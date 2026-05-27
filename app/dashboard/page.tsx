@@ -3,11 +3,25 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/auth-context'
 import { getDashboardStats } from '@/lib/services/treadmill-service'
-import { getPartsStats } from '@/lib/services/parts-service'
+import { getMissingParts, getPartsStats } from '@/lib/services/parts-service'
+import {
+  createNotification,
+  getAllNotifications,
+} from '@/lib/services/logs-service'
 import { getMaintenanceStats } from '@/lib/services/maintenance-service'
+import type { Part } from '@/lib/types'
 import {
   Dumbbell,
   CheckCircle,
@@ -39,6 +53,7 @@ interface DashboardStats {
     maintenance: number
     awaitingParts: number
     unavailable: number
+    sold: number
   }
   parts: {
     missing: number
@@ -57,12 +72,15 @@ const STATUS_COLORS = {
   maintenance: 'oklch(0.80 0.18 85)',
   awaitingParts: 'oklch(0.70 0.22 175)',
   unavailable: 'oklch(0.60 0.22 25)',
+  sold: 'oklch(0.60 0.15 250)',
 }
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [missingPartsList, setMissingPartsList] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
+  const [showPurchaseReminder, setShowPurchaseReminder] = useState(false)
 
   useEffect(() => {
     async function loadStats() {
@@ -73,11 +91,42 @@ export default function DashboardPage() {
           getMaintenanceStats(),
         ])
 
+        let missingParts: Part[] = []
+
+        if (user?.role === 'compras') {
+          missingParts = await getMissingParts()
+        }
+
         setStats({
           treadmills: treadmillStats,
           parts: partsStats,
           maintenance: maintenanceStats,
         })
+
+        if (user?.role === 'compras') {
+          setMissingPartsList(missingParts)
+          setShowPurchaseReminder(missingParts.length > 0)
+
+          if (missingParts.length > 0) {
+            const existingNotifications = await getAllNotifications()
+            const hasPurchaseReminder = existingNotifications.some(
+              (notification) =>
+                notification.userId === user.id &&
+                notification.title === 'Peças faltando para compra' &&
+                !notification.read
+            )
+
+            if (!hasPurchaseReminder) {
+              await createNotification({
+                userId: user.id,
+                title: 'Peças faltando para compra',
+                message: `${missingParts.length} peça(s) ainda precisam ser compradas.`,
+                type: 'warning',
+                read: false,
+              })
+            }
+          }
+        }
       } catch (error) {
         console.error('Error loading dashboard stats:', error)
       } finally {
@@ -86,14 +135,14 @@ export default function DashboardPage() {
     }
 
     loadStats()
-  }, [])
+  }, [user?.role])
 
   const statusChartData = stats
     ? [
         { name: 'Prontas', value: stats.treadmills.ready, color: STATUS_COLORS.ready },
         { name: 'Em Manutenção', value: stats.treadmills.maintenance, color: STATUS_COLORS.maintenance },
         { name: 'Aguardando Peças', value: stats.treadmills.awaitingParts, color: STATUS_COLORS.awaitingParts },
-        { name: 'Indisponíveis', value: stats.treadmills.unavailable, color: STATUS_COLORS.unavailable },
+        { name: 'Vendidos', value: stats.treadmills.sold, color: STATUS_COLORS.sold },
       ]
     : []
 
@@ -123,6 +172,35 @@ export default function DashboardPage() {
           </p>
         )}
       </div>
+
+      <Dialog open={showPurchaseReminder} onOpenChange={setShowPurchaseReminder}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Peças faltando para compra</DialogTitle>
+            <DialogDescription>
+              Existem {missingPartsList.length} peças pendentes de compra. Confira os itens abaixo e acesse a área de compras para processar as solicitações.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-72 overflow-y-auto rounded-md border border-border/70 bg-muted p-4 text-sm text-foreground">
+            {missingPartsList.map((part) => (
+              <div key={part.id} className="rounded-md bg-background/90 px-3 py-2 shadow-sm">
+                <p className="font-semibold">{part.name}</p>
+                <p className="text-muted-foreground text-xs">
+                  Código: {part.code} • Qtd: {part.quantity}
+                </p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowPurchaseReminder(false)}>
+              Fechar
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/compras">Ir para Compras</Link>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
@@ -162,13 +240,13 @@ export default function DashboardPage() {
           href="/dashboard/esteiras?status=aguardando_pecas"
         />
         <StatsCard
-          title="Indisponíveis"
-          value={stats?.treadmills.unavailable}
+          title="Vendidos"
+          value={stats?.treadmills.sold}
           loading={loading}
-          icon={XCircle}
-          description="Fora de operação"
-          variant="danger"
-          href="/dashboard/esteiras?status=indisponivel"
+          icon={CheckCircle}
+          description="Esteiras vendidas"
+          variant="default"
+          href="/dashboard/vendidos"
         />
       </div>
 

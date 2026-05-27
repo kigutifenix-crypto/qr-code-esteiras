@@ -12,8 +12,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { createPart } from '@/lib/services/parts-service'
+import { createLog } from '@/lib/services/logs-service'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
-import { getAllTreadmills } from '@/lib/services/treadmill-service'
+import { getAllTreadmills, getTreadmill } from '@/lib/services/treadmill-service'
 import type { Treadmill } from '@/lib/types'
 import { ArrowLeft, Loader2, Package, AlertCircle } from 'lucide-react'
 
@@ -60,7 +61,9 @@ export default function NovaPecaPage() {
       try {
         setLoadingTreadmills(true)
         const data = await getAllTreadmills()
-        setTreadmills(data)
+        // Filtrar esteiras vendidas - não podem ter peças
+        const availableTreadmills = data.filter(t => t.status !== 'vendido')
+        setTreadmills(availableTreadmills)
       } catch (err) {
         console.error('Erro carregando esteiras:', err)
       } finally {
@@ -79,6 +82,15 @@ export default function NovaPecaPage() {
     try {
       if (!formData.treadmillId) {
         throw new Error('Informe a esteira relacionada')
+      }
+
+      // Validar que a esteira não foi vendida
+      const selectedTreadmill = await getTreadmill(formData.treadmillId)
+      if (!selectedTreadmill) {
+        throw new Error('Esteira não encontrada')
+      }
+      if (selectedTreadmill.status === 'vendido') {
+        throw new Error('Não é possível criar peças para esteiras vendidas')
       }
 
       let photoUrl: string | undefined
@@ -101,6 +113,19 @@ export default function NovaPecaPage() {
           ? `/dashboard/esteiras/${formData.treadmillId}`
           : '/dashboard/pecas'
       )
+
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'create',
+          entity: 'part',
+          entityId: formData.code || '',
+          details: `Created part ${formData.name} for treadmill ${formData.treadmillId}`,
+        })
+      } catch (e) {
+        console.warn('Failed to write part creation log', e)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar peça')
     } finally {
@@ -131,6 +156,13 @@ export default function NovaPecaPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        <Alert className="bg-blue-500/10 border-blue-500/30">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-700">
+            Esteiras com status "Vendido" não aparecem na lista, pois não podem receber novas peças.
+          </AlertDescription>
+        </Alert>
 
         {formData.treadmillId && (
           <Card className="border-border/50">

@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/contexts/auth-context'
 import './globals.css'
+import AuthGuard from '@/components/auth-guard'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -60,9 +61,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}
       >
         <AuthProvider>
-          {children}
+            <AuthGuard />
+            {children}
           <Toaster />
-          {process.env.NODE_ENV === 'production' && <Analytics />}
+          {process.env.NODE_ENV === 'production' && process.env.VERCEL === '1' && (
+            <Analytics />
+          )}
         </AuthProvider>
       </body>
     </html>

@@ -28,7 +28,10 @@ import {
   subscribeTreadmills,
   filterTreadmills,
   deleteTreadmill,
+  countRelatedRecords,
+  archiveTreadmill,
 } from '@/lib/services/treadmill-service'
+import { createLog } from '@/lib/services/logs-service'
 import type { Treadmill, TreadmillStatus, TreadmillFilters } from '@/lib/types'
 import {
   Plus,
@@ -61,16 +64,18 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export default function EsteirasPage() {
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [treadmills, setTreadmills] = useState<Treadmill[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [relatedCounts, setRelatedCounts] = useState<{ maintenance: number; parts: number } | null>(null)
+  const [archiveMode, setArchiveMode] = useState<'archive' | 'delete'>('archive')
   
   // Obter status da URL, se houver
   const statusFromUrl = searchParams.get('status')
-  const status = ['all', 'pronta', 'manutencao', 'indisponivel', 'aguardando_pecas'].includes(statusFromUrl ?? '')
+  const status = ['all', 'pronta', 'manutencao', 'aguardando_pecas', 'vendido'].includes(statusFromUrl ?? '')
     ? (statusFromUrl as TreadmillStatus | 'all')
     : 'all'
   
@@ -85,7 +90,7 @@ export default function EsteirasPage() {
 
   // Atualizar filtros quando a URL mudar
   useEffect(() => {
-    if (statusFromUrl && ['all', 'pronta', 'manutencao', 'indisponivel', 'aguardando_pecas'].includes(statusFromUrl)) {
+    if (statusFromUrl && ['all', 'pronta', 'manutencao', 'aguardando_pecas', 'vendido'].includes(statusFromUrl)) {
       setFilters(prev => ({ ...prev, status: statusFromUrl as TreadmillStatus | 'all' }))
     }
   }, [statusFromUrl])
@@ -127,14 +132,58 @@ export default function EsteirasPage() {
 
   const filteredTreadmills = filterTreadmills(treadmills, filters)
 
+  useEffect(() => {
+    async function fetchCounts() {
+      if (!deleteId) return
+      try {
+        const counts = await countRelatedRecords(deleteId)
+        setRelatedCounts(counts)
+      } catch (err) {
+        setRelatedCounts({ maintenance: 0, parts: 0 })
+      }
+    }
+
+    fetchCounts()
+  }, [deleteId])
+
   const handleDelete = async () => {
     if (!deleteId) return
 
     try {
-      await deleteTreadmill(deleteId)
+      if (archiveMode === 'archive') {
+        await archiveTreadmill(deleteId)
+        try {
+          await createLog({
+            userId: user?.id || '',
+            userName: user?.name || 'Unknown',
+            action: 'archive',
+            entity: 'treadmill',
+            entityId: deleteId,
+            details: `Archived treadmill ${deleteId}`,
+          })
+        } catch (e) {
+          console.warn('Failed to write archive log', e)
+        }
+      } else {
+        await deleteTreadmill(deleteId)
+        try {
+          await createLog({
+            userId: user?.id || '',
+            userName: user?.name || 'Unknown',
+            action: 'delete',
+            entity: 'treadmill',
+            entityId: deleteId,
+            details: `Deleted treadmill ${deleteId}`,
+          })
+        } catch (e) {
+          console.warn('Failed to write delete log', e)
+        }
+      }
+
       setDeleteId(null)
+      setRelatedCounts(null)
     } catch (error) {
-      console.error('Error deleting treadmill:', error)
+      console.error('Error removing treadmill:', error)
     }
   }
 
@@ -152,14 +201,21 @@ export default function EsteirasPage() {
             Gerencie todas as esteiras cadastradas no sistema
           </p>
         </div>
-        {canCreate && (
-          <Button asChild>
-            <Link href="/dashboard/esteiras/nova">
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Esteira
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/archived">
+              Arquivadas
             </Link>
           </Button>
-        )}
+          {canCreate && (
+            <Button asChild>
+              <Link href="/dashboard/esteiras/nova">
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Esteira
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -190,7 +246,7 @@ export default function EsteirasPage() {
                 <SelectItem value="pronta">Prontas para Venda</SelectItem>
                 <SelectItem value="manutencao">Em Manutenção</SelectItem>
                 <SelectItem value="aguardando_pecas">Aguardando Peças</SelectItem>
-                <SelectItem value="indisponivel">Indisponíveis</SelectItem>
+                <SelectItem value="vendido">Vendidos</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -337,19 +393,50 @@ export default function EsteirasPage() {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Remover esteira</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta esteira? Esta ação não pode ser
-              desfeita e todos os dados relacionados serão perdidos.
+              {relatedCounts ? (
+                <span>
+                  Esta ação afetará <strong>{relatedCounts.maintenance}</strong> registros de
+                  manutenção e <strong>{relatedCounts.parts}</strong> peças relacionadas.
+                </span>
+              ) : (
+                'Carregando informações...'
+              )}
+              <div className="mt-3">
+                Escolha se deseja arquivar (backup) ou excluir permanentemente:
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="archiveMode"
+                value="archive"
+                checked={archiveMode === 'archive'}
+                onChange={() => setArchiveMode('archive')}
+              />
+              <span>Arquivar (salvar backup e remover dados ativos)</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="radio"
+                name="archiveMode"
+                value="delete"
+                checked={archiveMode === 'delete'}
+                onChange={() => setArchiveMode('delete')}
+              />
+              <span>Excluir permanentemente (irreversível)</span>
+            </label>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={archiveMode === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >
-              Excluir
+              {archiveMode === 'archive' ? 'Arquivar' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

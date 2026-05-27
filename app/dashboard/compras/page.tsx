@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/status-badge'
 import { useAuth } from '@/contexts/auth-context'
-import { markPartAsPurchased, markPartAsReceived, subscribePartsByStatus } from '@/lib/services/parts-service'
+import { deletePart, markPartAsPurchased, markPartAsReceived, subscribePartsByStatus } from '@/lib/services/parts-service'
 import type { Part } from '@/lib/types'
 import {
   ShoppingCart,
@@ -41,6 +41,8 @@ export default function ComprasPage() {
     expectedDelivery: '',
   })
   const [saving, setSaving] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState<Part | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const unsubscribeMissing = subscribePartsByStatus('faltando', (data) => {
@@ -58,6 +60,22 @@ export default function ComprasPage() {
 
   const canMarkPurchased = hasPermission('mark_purchased')
   const canMarkReceived = hasPermission('update_part_status')
+  const canEditParts = hasPermission('edit_parts')
+  const canDeleteParts = hasPermission('delete_parts')
+
+  const handleDelete = async () => {
+    if (!deleteDialog) return
+
+    setDeleting(true)
+    try {
+      await deletePart(deleteDialog.id)
+      setDeleteDialog(null)
+    } catch (error) {
+      console.error('Error deleting part:', error)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const handlePurchase = async () => {
     if (!purchaseDialog || !purchaseForm.supplier || !purchaseForm.expectedDelivery) return
@@ -168,7 +186,7 @@ export default function ComprasPage() {
                     <span className="text-xs text-muted-foreground">
                       Solicitada em {format(part.createdAt, "dd/MM/yyyy", { locale: ptBR })}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button variant="ghost" size="sm" asChild>
                         <Link href={`/dashboard/esteiras/${part.treadmillId}`}>
                           Ver Esteira
@@ -181,6 +199,22 @@ export default function ComprasPage() {
                         >
                           <ShoppingCart className="mr-1 h-3 w-3" />
                           Comprar
+                        </Button>
+                      )}
+                      {canEditParts && (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/dashboard/pecas/${part.id}/editar`}>
+                            Editar
+                          </Link>
+                        </Button>
+                      )}
+                      {canDeleteParts && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeleteDialog(part)}
+                        >
+                          Excluir
                         </Button>
                       )}
                     </div>
@@ -305,6 +339,30 @@ export default function ComprasPage() {
               disabled={saving || !purchaseForm.supplier || !purchaseForm.expectedDelivery}
             >
               {saving ? 'Salvando...' : 'Confirmar Compra'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteDialog)} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir peça</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir esta peça faltante? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <p className="text-sm text-muted-foreground">
+              {deleteDialog?.name} - {deleteDialog?.code}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Excluindo...' : 'Excluir'}
             </Button>
           </DialogFooter>
         </DialogContent>

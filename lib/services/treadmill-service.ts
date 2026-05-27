@@ -12,13 +12,13 @@ import {
   update,
 } from 'firebase/database'
 import { db, COLLECTIONS } from '@/lib/firebase'
-import type { Treadmill, TreadmillStatus, TreadmillFilters } from '@/lib/types'
+import type { ArchivedTreadmill, Treadmill, TreadmillStatus, TreadmillFilters } from '@/lib/types'
 
 // Generate unique ID for QR code
 function generateQRId(): string {
-  const timestamp = Date.now().toString(36)
-  const random = Math.random().toString(36).substring(2, 8)
-  return `FNX-${timestamp}-${random}`.toUpperCase()
+  const timestamp = Date.now().toString(36).toUpperCase()
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase()
+  return `${timestamp}-${random}`
 }
 
 // Convert Realtime Database snapshot data to Treadmill
@@ -39,6 +39,9 @@ function snapshotToTreadmill(id: string, data: any): Treadmill {
     incline: data?.incline || '',
     photos: Array.isArray(data?.photos) ? data.photos : [],
     status: (data?.status as TreadmillStatus) || 'pronta',
+    orderNumber: data?.orderNumber || undefined,
+    saleDate: typeof data?.saleDate === 'number' ? new Date(data.saleDate) : undefined,
+    deliveryStatus: data?.deliveryStatus || undefined,
     createdAt: typeof data?.createdAt === 'number' ? new Date(data.createdAt) : new Date(),
     updatedAt: typeof data?.updatedAt === 'number' ? new Date(data.updatedAt) : new Date(),
     createdBy: data?.createdBy || '',
@@ -54,14 +57,23 @@ export async function createTreadmill(
   const qrCode = data.qrCode || generateQRId()
   const treadmillRef = push(ref(db, COLLECTIONS.TREADMILLS))
 
-  await set(treadmillRef, {
+  // Normalize dates to timestamps where applicable
+  const payload: Record<string, unknown> = {
     ...data,
     qrCode,
     status: data.status || 'pronta',
     voltage: data.voltage || '220V',
     createdAt: now,
     updatedAt: now,
-  })
+  }
+
+  if (data.saleDate instanceof Date) {
+    payload.saleDate = data.saleDate.getTime()
+  } else if (typeof (data as any).saleDate === 'number') {
+    payload.saleDate = (data as any).saleDate
+  }
+
+  await set(treadmillRef, payload)
 
   return treadmillRef.key ?? ''
 }
@@ -78,7 +90,12 @@ export async function updateTreadmill(
   // Only include defined values in the update
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined) {
-      updates[key] = value
+      // Convert Date objects to numeric timestamps for storage
+      if (value instanceof Date) {
+        updates[key] = value.getTime()
+      } else {
+        updates[key] = value
+      }
     }
   })
 
@@ -87,6 +104,113 @@ export async function updateTreadmill(
 
 // Delete a treadmill
 export async function deleteTreadmill(id: string): Promise<void> {
+  // Delete maintenance records associated with this treadmill
+  try {
+    const maintenanceSnapshot = await get(
+      query(ref(db, COLLECTIONS.MAINTENANCE), orderByChild('treadmillId'), equalTo(id))
+    )
+
+    const maintenanceRaw = maintenanceSnapshot.val()
+    if (maintenanceRaw) {
+      for (const key of Object.keys(maintenanceRaw)) {
+        await remove(ref(db, `${COLLECTIONS.MAINTENANCE}/${key}`))
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to delete related maintenance records:', err)
+  }
+
+  // Delete parts associated with this treadmill
+  try {
+    const partsSnapshot = await get(
+      query(ref(db, COLLECTIONS.PARTS), orderByChild('treadmillId'), equalTo(id))
+    )
+
+    const partsRaw = partsSnapshot.val()
+    if (partsRaw) {
+      for (const key of Object.keys(partsRaw)) {
+        await remove(ref(db, `${COLLECTIONS.PARTS}/${key}`))
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to delete related parts:', err)
+  }
+
+  // Finally remove the treadmill
+  await remove(ref(db, `${COLLECTIONS.TREADMILLS}/${id}`))
+}
+
+// Count related maintenance and parts for a treadmill
+export async function countRelatedRecords(id: string): Promise<{ maintenance: number; parts: number }> {
+  try {
+    const maintenanceSnapshot = await get(
+      query(ref(db, COLLECTIONS.MAINTENANCE), orderByChild('treadmillId'), equalTo(id))
+    )
+    const partsSnapshot = await get(
+      query(ref(db, COLLECTIONS.PARTS), orderByChild('treadmillId'), equalTo(id))
+    )
+
+    const maintenanceRaw = maintenanceSnapshot.val()
+    const partsRaw = partsSnapshot.val()
+
+    return {
+      maintenance: maintenanceRaw ? Object.keys(maintenanceRaw).length : 0,
+      parts: partsRaw ? Object.keys(partsRaw).length : 0,
+    }
+  } catch (err) {
+    console.warn('Failed to count related records:', err)
+    return { maintenance: 0, parts: 0 }
+  }
+}
+
+// Archive treadmill and its related records instead of permanent deletion
+export async function archiveTreadmill(id: string): Promise<void> {
+  const now = Date.now()
+
+  // Fetch treadmill
+  const treadmillSnapshot = await get(ref(db, `${COLLECTIONS.TREADMILLS}/${id}`))
+  if (!treadmillSnapshot.exists()) return
+  const treadmillData = treadmillSnapshot.val()
+
+  // Save treadmill to archive
+  const archiveTref = push(ref(db, COLLECTIONS.ARCHIVE_TREADMILLS))
+  await set(archiveTref, { ...treadmillData, originalId: id, archivedAt: now })
+
+  // Archive maintenance
+  try {
+    const maintenanceSnapshot = await get(
+      query(ref(db, COLLECTIONS.MAINTENANCE), orderByChild('treadmillId'), equalTo(id))
+    )
+    const maintenanceRaw = maintenanceSnapshot.val()
+    if (maintenanceRaw) {
+      for (const [key, value] of Object.entries(maintenanceRaw)) {
+        const arcRef = push(ref(db, COLLECTIONS.ARCHIVE_MAINTENANCE))
+        await set(arcRef, { ...(value as any), originalId: key, archivedAt: now })
+        await remove(ref(db, `${COLLECTIONS.MAINTENANCE}/${key}`))
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to archive maintenance:', err)
+  }
+
+  // Archive parts
+  try {
+    const partsSnapshot = await get(
+      query(ref(db, COLLECTIONS.PARTS), orderByChild('treadmillId'), equalTo(id))
+    )
+    const partsRaw = partsSnapshot.val()
+    if (partsRaw) {
+      for (const [key, value] of Object.entries(partsRaw)) {
+        const arcRef = push(ref(db, COLLECTIONS.ARCHIVE_PARTS))
+        await set(arcRef, { ...(value as any), originalId: key, archivedAt: now })
+        await remove(ref(db, `${COLLECTIONS.PARTS}/${key}`))
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to archive parts:', err)
+  }
+
+  // Remove treadmill
   await remove(ref(db, `${COLLECTIONS.TREADMILLS}/${id}`))
 }
 
@@ -103,10 +227,15 @@ export async function getTreadmill(id: string): Promise<Treadmill | null> {
 
 // Get treadmill by QR code
 export async function getTreadmillByQRCode(qrCode: string): Promise<Treadmill | null> {
+  // Normalize input: accept full URLs or raw codes, compare case-insensitive
+  const raw = String(qrCode || '').trim()
+  const candidate = raw.includes('/') ? raw.split('/').pop() || raw : raw
+
+  // First try the indexed query (fast)
   const treadmillQuery = query(
     ref(db, COLLECTIONS.TREADMILLS),
     orderByChild('qrCode'),
-    equalTo(qrCode)
+    equalTo(candidate)
   )
   const snapshot = await get(treadmillQuery)
 
@@ -116,7 +245,25 @@ export async function getTreadmillByQRCode(qrCode: string): Promise<Treadmill | 
     return true
   })
 
-  return treadmill
+  if (treadmill) return treadmill
+
+  // Fallback: fetch all and try case-insensitive / normalized matches
+  const all = await getAllTreadmills()
+  const target = candidate.trim().toLowerCase()
+
+  // exact case-insensitive match
+  let found = all.find((t) => (t.qrCode || '').trim().toLowerCase() === target)
+  if (found) return found
+
+  // normalized match (strip non-alphanumeric)
+  const normalize = (s: string) => (s || '').replace(/[^a-z0-9]/gi, '').toLowerCase()
+  const normalizedTarget = normalize(candidate)
+  if (normalizedTarget) {
+    found = all.find((t) => normalize(t.qrCode || '') === normalizedTarget)
+    if (found) return found
+  }
+
+  return null
 }
 
 // Get all treadmills
@@ -133,6 +280,106 @@ export async function getAllTreadmills(): Promise<Treadmill[]> {
   )
 
   return treadmills.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+}
+
+function snapshotToArchivedTreadmill(id: string, data: any): ArchivedTreadmill {
+  return {
+    ...snapshotToTreadmill(id, data),
+    originalId: data?.originalId || '',
+    archivedAt:
+      typeof data?.archivedAt === 'number'
+        ? new Date(data.archivedAt)
+        : new Date(),
+  }
+}
+
+export async function getArchivedTreadmill(id: string): Promise<ArchivedTreadmill | null> {
+  const snapshot = await get(ref(db, `${COLLECTIONS.ARCHIVE_TREADMILLS}/${id}`))
+
+  if (!snapshot.exists()) return null
+
+  return snapshotToArchivedTreadmill(id, snapshot.val())
+}
+
+export async function getArchivedTreadmills(): Promise<ArchivedTreadmill[]> {
+  try {
+    const snapshot = await get(ref(db, COLLECTIONS.ARCHIVE_TREADMILLS))
+    const raw = snapshot.val()
+
+    if (!raw) return []
+
+    const archives = Object.entries(raw).map(([id, value]) =>
+      snapshotToArchivedTreadmill(id, value)
+    )
+
+    return archives.sort((a, b) => b.archivedAt.getTime() - a.archivedAt.getTime())
+  } catch (error) {
+    console.error('Failed to load archived treadmills:', error)
+    throw error
+  }
+}
+
+export async function restoreArchivedTreadmill(archiveId: string): Promise<void> {
+  const archiveSnapshot = await get(ref(db, `${COLLECTIONS.ARCHIVE_TREADMILLS}/${archiveId}`))
+  if (!archiveSnapshot.exists()) {
+    throw new Error('Esteira arquivada não encontrada.')
+  }
+
+  const archivedData = archiveSnapshot.val()
+  const originalId = archivedData?.originalId as string
+  if (!originalId) {
+    throw new Error('Dados de arquivo inválidos.')
+  }
+
+  // Restore treadmill record to active collection
+  const treadmillPayload = { ...archivedData }
+  delete treadmillPayload.originalId
+  delete treadmillPayload.archivedAt
+
+  await set(ref(db, `${COLLECTIONS.TREADMILLS}/${originalId}`), treadmillPayload)
+
+  // Restore maintenance records
+  try {
+    const maintenanceSnapshot = await get(
+      query(ref(db, COLLECTIONS.ARCHIVE_MAINTENANCE), orderByChild('treadmillId'), equalTo(originalId))
+    )
+    const maintenanceRaw = maintenanceSnapshot.val()
+    if (maintenanceRaw) {
+      for (const [key, value] of Object.entries(maintenanceRaw)) {
+        const originalMaintenanceId = (value as any)?.originalId || key
+        const maintenancePayload = { ...(value as any) }
+        delete maintenancePayload.originalId
+        delete maintenancePayload.archivedAt
+        await set(ref(db, `${COLLECTIONS.MAINTENANCE}/${originalMaintenanceId}`), maintenancePayload)
+        await remove(ref(db, `${COLLECTIONS.ARCHIVE_MAINTENANCE}/${key}`))
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to restore maintenance records:', err)
+  }
+
+  // Restore parts records
+  try {
+    const partsSnapshot = await get(
+      query(ref(db, COLLECTIONS.ARCHIVE_PARTS), orderByChild('treadmillId'), equalTo(originalId))
+    )
+    const partsRaw = partsSnapshot.val()
+    if (partsRaw) {
+      for (const [key, value] of Object.entries(partsRaw)) {
+        const originalPartId = (value as any)?.originalId || key
+        const partPayload = { ...(value as any) }
+        delete partPayload.originalId
+        delete partPayload.archivedAt
+        await set(ref(db, `${COLLECTIONS.PARTS}/${originalPartId}`), partPayload)
+        await remove(ref(db, `${COLLECTIONS.ARCHIVE_PARTS}/${key}`))
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to restore parts records:', err)
+  }
+
+  // Remove archive treadmill record
+  await remove(ref(db, `${COLLECTIONS.ARCHIVE_TREADMILLS}/${archiveId}`))
 }
 
 // Get treadmills by status
@@ -247,6 +494,7 @@ export async function getDashboardStats(): Promise<{
   maintenance: number
   awaitingParts: number
   unavailable: number
+  sold: number
 }> {
   const treadmills = await getAllTreadmills()
 
@@ -256,5 +504,6 @@ export async function getDashboardStats(): Promise<{
     maintenance: treadmills.filter((t) => t.status === 'manutencao').length,
     awaitingParts: treadmills.filter((t) => t.status === 'aguardando_pecas').length,
     unavailable: treadmills.filter((t) => t.status === 'indisponivel').length,
+    sold: treadmills.filter((t) => t.status === 'vendido').length,
   }
 }

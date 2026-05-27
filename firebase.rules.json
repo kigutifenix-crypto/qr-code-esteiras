@@ -1,9 +1,19 @@
 {
   "rules": {
-    ".read": "auth != null",
+    ".read": true,
     ".write": "auth != null",
     "treadmills": {
+      ".read": true,
       ".indexOn": ["createdAt", "qrCode", "status"]
+    },
+    "archive_treadmills": {
+      ".indexOn": ["archivedAt"]
+    },
+    "archive_maintenance": {
+      ".indexOn": ["treadmillId"]
+    },
+    "archive_parts": {
+      ".indexOn": ["treadmillId"]
     },
     "maintenance": {
       ".indexOn": ["createdAt", "treadmillId", "technicianId"]

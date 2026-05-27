@@ -18,6 +18,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { createTreadmill, getAllTreadmills } from '@/lib/services/treadmill-service'
+import { createLog } from '@/lib/services/logs-service'
 import type { TreadmillStatus } from '@/lib/types'
 import { ArrowLeft, Loader2, Save, AlertCircle } from 'lucide-react'
 
@@ -27,6 +28,7 @@ export default function NovaEsteiraPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [availableNumbers, setAvailableNumbers] = useState<string[]>([])
+  const [nextNumber, setNextNumber] = useState<string>('')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -57,7 +59,17 @@ export default function NovaEsteiraPage() {
         const treadmills = await getAllTreadmills()
         const takenNumbers = treadmills.map((t) => t.qrCode)
         const allNumbers = Array.from({ length: 200 }, (_, i) => String(i + 1))
-        setAvailableNumbers(allNumbers.filter((number) => !takenNumbers.includes(number)))
+        const available = allNumbers.filter((number) => !takenNumbers.includes(number))
+        setAvailableNumbers(available)
+        
+        // Calcular o próximo número automaticamente baseado na quantidade de esteiras
+        const nextNum = String(treadmills.length + 1)
+        if (available.includes(nextNum)) {
+          setNextNumber(nextNum)
+        } else {
+          // Se o número sequencial já foi usado, pega o primeiro disponível
+          setNextNumber(available[0] || '')
+        }
       } catch (err) {
         console.error('Erro ao carregar números disponíveis:', err)
       }
@@ -65,6 +77,12 @@ export default function NovaEsteiraPage() {
 
     loadNumbers()
   }, [])
+
+  const handleUseAutoNumber = () => {
+    if (nextNumber) {
+      setFormData((prev) => ({ ...prev, number: nextNumber }))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,6 +103,20 @@ export default function NovaEsteiraPage() {
         createdBy: user?.id || '',
         createdByName: user?.name || '',
       })
+
+      // Log the creation
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'create',
+          entity: 'treadmill',
+          entityId: formData.number,
+          details: `Created treadmill ${formData.name} (${formData.number})`,
+        })
+      } catch (e) {
+        console.warn('Failed to write creation log', e)
+      }
 
       router.push('/dashboard/esteiras')
     } catch (err) {
@@ -139,25 +171,41 @@ export default function NovaEsteiraPage() {
                   className="bg-input/50"
                 />
               </div>
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <Label htmlFor="number">Número *</Label>
-                <Select
-                  value={formData.number}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, number: value }))
-                  }
-                >
-                  <SelectTrigger id="number" className="bg-input/50">
-                    <SelectValue placeholder="Selecione um número" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableNumbers.map((number) => (
-                      <SelectItem key={number} value={number}>
-                        {number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.number}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({ ...prev, number: value }))
+                    }
+                  >
+                    <SelectTrigger id="number" className="bg-input/50 flex-1">
+                      <SelectValue placeholder="Selecione um número" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableNumbers.map((number) => (
+                        <SelectItem key={number} value={number}>
+                          {number}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {nextNumber && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleUseAutoNumber}
+                      className="whitespace-nowrap"
+                      title={`Usar o próximo número disponível: ${nextNumber}`}
+                    >
+                      Auto: {nextNumber}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {nextNumber && `Sugestão automática: ${nextNumber}`}
+                </p>
               </div>
             </div>
 

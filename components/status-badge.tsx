@@ -32,6 +32,11 @@ const statusConfig: Record<
     className: 'bg-status-danger/15 text-status-danger border-status-danger/30',
     dotColor: 'bg-status-danger',
   },
+  vendido: {
+    label: 'Vendido',
+    className: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+    dotColor: 'bg-blue-600',
+  },
   faltando: {
     label: 'Faltando',
     className: 'bg-status-danger/15 text-status-danger border-status-danger/30',

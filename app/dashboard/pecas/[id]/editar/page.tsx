@@ -13,7 +13,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Loader2, Save, AlertCircle } from 'lucide-react'
 import { getPart, updatePart } from '@/lib/services/parts-service'
-import { uploadImageToCloudinary } from '@/lib/cloudinary'
+import { useAuth } from '@/contexts/auth-context'
+import { createLog } from '@/lib/services/logs-service'
+import { getTreadmill } from '@/lib/services/treadmill-service'
+import { deleteImageFromCloudinary, uploadImageToCloudinary } from '@/lib/cloudinary'
 import type { Part, PartStatus } from '@/lib/types'
 
 function formatDateInput(value?: Date) {
@@ -28,6 +31,7 @@ export default function EditarPecaPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [isSoldTreadmill, setIsSoldTreadmill] = useState(false)
   const [part, setPart] = useState<Part | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -43,6 +47,7 @@ export default function EditarPecaPage() {
   })
 
   const id = params.id as string
+  const { user } = useAuth()
 
   useEffect(() => {
     async function loadPart() {
@@ -54,6 +59,25 @@ export default function EditarPecaPage() {
         const partData = await getPart(id)
         if (!partData) {
           setNotFound(true)
+          return
+        }
+
+        // Verificar se a esteira foi vendida
+        const treadmill = await getTreadmill(partData.treadmillId)
+        if (treadmill?.status === 'vendido') {
+          setIsSoldTreadmill(true)
+          setPart(partData)
+          setFormData({
+            name: partData.name,
+            code: partData.code,
+            quantity: partData.quantity,
+            status: partData.status,
+            expectedDelivery: formatDateInput(partData.expectedDelivery),
+            supplier: partData.supplier || '',
+            notes: partData.notes || '',
+            photoUrl: partData.photoUrl || '',
+          })
+          setPhotoPreview(partData.photoUrl || null)
           return
         }
 
@@ -105,6 +129,8 @@ export default function EditarPecaPage() {
       if (!part) return
 
       let photoUrl = formData.photoUrl || undefined
+      const previousPhotoUrl = part.photoUrl
+
       if (photoFile) {
         photoUrl = await uploadImageToCloudinary(photoFile)
       }
@@ -122,7 +148,23 @@ export default function EditarPecaPage() {
         photoUrl,
       })
 
+      if (photoFile && previousPhotoUrl && previousPhotoUrl !== photoUrl) {
+        await deleteImageFromCloudinary(previousPhotoUrl)
+      }
+
       router.push('/dashboard/pecas')
+      try {
+        await createLog({
+          userId: user?.id || '',
+          userName: user?.name || 'Unknown',
+          action: 'update',
+          entity: 'part',
+          entityId: part.id,
+          details: JSON.stringify({ ...formData }),
+        })
+      } catch (e) {
+        console.warn('Failed to write part update log', e)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar a peça')
     } finally {
@@ -176,6 +218,14 @@ export default function EditarPecaPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {isSoldTreadmill && (
+          <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Esta esteira foi vendida. O histórico de peças é mantido, mas não é possível fazer novas edições.
+            </AlertDescription>
+          </Alert>
+        )}
         {error && (
           <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
             <AlertCircle className="h-4 w-4" />
@@ -197,6 +247,7 @@ export default function EditarPecaPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
+                  disabled={isSoldTreadmill}
                   required
                   className="bg-input/50"
                 />
@@ -208,6 +259,7 @@ export default function EditarPecaPage() {
                   name="code"
                   value={formData.code}
                   onChange={handleChange}
+                  disabled={isSoldTreadmill}
                   required
                   className="bg-input/50"
                 />
@@ -224,6 +276,7 @@ export default function EditarPecaPage() {
                   min={1}
                   value={formData.quantity}
                   onChange={handleChange}
+                  disabled={isSoldTreadmill}
                   className="bg-input/50"
                 />
               </div>
@@ -237,6 +290,7 @@ export default function EditarPecaPage() {
                       status: value as PartStatus,
                     }))
                   }
+                  disabled={isSoldTreadmill}
                 >
                   <SelectTrigger className="bg-input/50">
                     <SelectValue />
@@ -266,6 +320,7 @@ export default function EditarPecaPage() {
                   name="supplier"
                   value={formData.supplier}
                   onChange={handleChange}
+                  disabled={isSoldTreadmill}
                   className="bg-input/50"
                 />
               </div>
@@ -277,6 +332,7 @@ export default function EditarPecaPage() {
                   type="date"
                   value={formData.expectedDelivery}
                   onChange={handleChange}
+                  disabled={isSoldTreadmill}
                   className="bg-input/50"
                 />
               </div>
@@ -289,6 +345,7 @@ export default function EditarPecaPage() {
                 name="notes"
                 value={formData.notes}
                 onChange={handleChange}
+                disabled={isSoldTreadmill}
                 className="bg-input/50"
               />
             </div>
@@ -301,6 +358,7 @@ export default function EditarPecaPage() {
                 accept="image/*"
                 capture="environment"
                 onChange={handlePhotoChange}
+                disabled={isSoldTreadmill}
                 className="block w-full rounded border border-input bg-background px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
               />
               {photoPreview && (
@@ -318,7 +376,7 @@ export default function EditarPecaPage() {
           <Button variant="secondary" asChild>
             <Link href="/dashboard/pecas">Cancelar</Link>
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving || isSoldTreadmill}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

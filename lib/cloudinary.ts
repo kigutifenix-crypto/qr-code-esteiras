@@ -38,3 +38,70 @@ export async function uploadImageToCloudinary(file: File): Promise<string> {
 
   return data.secure_url as string
 }
+
+export function getCloudinaryPublicIdFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    const path = parsed.pathname
+    const uploadIndex = path.indexOf('/upload/')
+    if (uploadIndex === -1) {
+      return null
+    }
+
+    const afterUpload = path.slice(uploadIndex + '/upload/'.length)
+    const segments = afterUpload.split('/')
+    let publicIdStartIndex = 0
+
+    while (publicIdStartIndex < segments.length && !/^v\d+$/.test(segments[publicIdStartIndex])) {
+      publicIdStartIndex += 1
+    }
+
+    if (publicIdStartIndex < segments.length && /^v\d+$/.test(segments[publicIdStartIndex])) {
+      publicIdStartIndex += 1
+    }
+
+    const publicIdSegments = segments.slice(publicIdStartIndex)
+    if (publicIdSegments.length === 0) {
+      return null
+    }
+
+    let publicId = publicIdSegments.join('/')
+    const extensionIndex = publicId.lastIndexOf('.')
+    if (extensionIndex !== -1) {
+      publicId = publicId.slice(0, extensionIndex)
+    }
+
+    return decodeURIComponent(publicId)
+  } catch (err) {
+    console.error('Erro ao extrair public_id do Cloudinary URL', err)
+    return null
+  }
+}
+
+export async function deleteImageFromCloudinary(url: string): Promise<void> {
+  const publicId = getCloudinaryPublicIdFromUrl(url)
+  if (!publicId) {
+    throw new Error('Não foi possível extrair o public_id da imagem do Cloudinary.')
+  }
+
+  const response = await fetch('/api/cloudinary/destroy', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ publicId }),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`Falha ao excluir imagem antiga no Cloudinary: ${text}`)
+  }
+
+  const responseData = await response.json().catch(() => null)
+  if (!responseData?.success) {
+    throw new Error(
+      `Falha ao excluir imagem antiga no Cloudinary: ${JSON.stringify(responseData)}`
+    )
+  }
+}

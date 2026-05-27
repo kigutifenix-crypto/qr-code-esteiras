@@ -73,6 +73,11 @@ export default function EsteiraDetailPage() {
   const handleDeleteMaintenance = async (maintenanceId: string) => {
     if (!canDeleteMaintenance) return
 
+    if (treadmill?.status === 'vendido') {
+      window.alert('Não é possível excluir registros de manutenção de esteiras vendidas')
+      return
+    }
+
     const confirmed = window.confirm(
       'Tem certeza que deseja excluir esta manutenção? Esta ação não pode ser desfeita.'
     )
@@ -92,6 +97,11 @@ export default function EsteiraDetailPage() {
 
   const handleDeletePart = async (partId: string) => {
     if (!canDeleteParts) return
+
+    if (treadmill?.status === 'vendido') {
+      window.alert('Não é possível excluir peças de esteiras vendidas')
+      return
+    }
 
     const confirmed = window.confirm(
       'Tem certeza que deseja excluir esta peça? Esta ação não pode ser desfeita.'
@@ -269,6 +279,30 @@ export default function EsteiraDetailPage() {
                     locale: ptBR,
                   })}
                 />
+                {treadmill.status === 'vendido' && treadmill.orderNumber && (
+                  <InfoRow
+                    icon={FileText}
+                    label="Número do Pedido"
+                    value={treadmill.orderNumber}
+                  />
+                )}
+                {treadmill.status === 'vendido' && treadmill.deliveryStatus && (
+                  <InfoRow
+                    icon={Package}
+                    label="Status de Entrega"
+                    value={
+                      treadmill.deliveryStatus === 'pendente'
+                        ? 'Pendente'
+                        : treadmill.deliveryStatus === 'em_transito'
+                        ? 'Em Trânsito'
+                        : treadmill.deliveryStatus === 'entregue'
+                        ? 'Entregue'
+                        : treadmill.deliveryStatus === 'cancelado'
+                        ? 'Cancelado'
+                        : treadmill.deliveryStatus
+                    }
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -306,7 +340,7 @@ export default function EsteiraDetailPage() {
         <TabsContent value="maintenance" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Histórico de Manutenção</h3>
-            {hasPermission('create_maintenance') && (
+            {hasPermission('create_maintenance') && treadmill?.status !== 'vendido' && (
               <Button asChild>
                 <Link href={`/dashboard/manutencao/nova?esteira=${id}`}>
                   <Wrench className="mr-2 h-4 w-4" />
@@ -398,7 +432,7 @@ export default function EsteiraDetailPage() {
                       </CardContent>
                     </Card>
                   </Link>
-                  {canDeleteMaintenance && (
+                  {canDeleteMaintenance && treadmill?.status !== 'vendido' && (
                     <Button
                       variant="destructive"
                       size="icon"
@@ -424,7 +458,7 @@ export default function EsteiraDetailPage() {
         <TabsContent value="parts" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Peças Relacionadas</h3>
-            {(hasPermission('add_parts') || hasPermission('manage_parts')) && (
+            {(hasPermission('add_parts') || hasPermission('manage_parts')) && treadmill?.status !== 'vendido' && (
               <Button asChild>
                 <Link href={`/dashboard/pecas/nova?esteira=${id}`}>
                   <Package className="mr-2 h-4 w-4" />
@@ -519,7 +553,7 @@ export default function EsteiraDetailPage() {
                       </CardContent>
                     </Card>
                   </Link>
-                  {canDeleteParts && (
+                  {canDeleteParts && treadmill?.status !== 'vendido' && (
                     <Button
                       variant="destructive"
                       size="icon"
