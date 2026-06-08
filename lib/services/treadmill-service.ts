@@ -498,12 +498,15 @@ export async function getDashboardStats(): Promise<{
 }> {
   const treadmills = await getAllTreadmills()
 
+  const soldCount = treadmills.filter((t) => t.status === 'vendido').length
+  const activeTreadmills = treadmills.length - soldCount
+
   return {
-    total: treadmills.length,
+    total: activeTreadmills,
     ready: treadmills.filter((t) => t.status === 'pronta').length,
     maintenance: treadmills.filter((t) => t.status === 'manutencao').length,
     awaitingParts: treadmills.filter((t) => t.status === 'aguardando_pecas').length,
     unavailable: treadmills.filter((t) => t.status === 'indisponivel').length,
-    sold: treadmills.filter((t) => t.status === 'vendido').length,
+    sold: soldCount,
   }
 }

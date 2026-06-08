@@ -32,6 +32,7 @@ import {
   TrendingUp,
   Activity,
 } from 'lucide-react'
+import type { TooltipPayload } from 'recharts'
 import {
   BarChart,
   Bar,
@@ -322,7 +323,7 @@ export default function DashboardPage() {
                       color: 'oklch(0.95 0.01 250)',
                       padding: '8px 12px',
                     }}
-                    content={({ active, payload }) => {
+                    content={({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) => {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-slate-900/90 border border-slate-700 rounded-lg p-3 text-sm text-white">
@@ -375,7 +376,7 @@ export default function DashboardPage() {
                       color: 'oklch(0.95 0.01 250)',
                       padding: '8px 12px',
                     }}
-                    content={({ active, payload }) => {
+                    content={({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) => {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-slate-900/90 border border-slate-700 rounded-lg p-3 text-sm text-white">

@@ -4,14 +4,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/auth-context'
 
+type DateTimeFormatStyleOptions = Intl.DateTimeFormatOptions & {
+  dateStyle?: 'full' | 'long' | 'medium' | 'short'
+  timeStyle?: 'full' | 'long' | 'medium' | 'short'
+}
+
 function formatDate(date?: Date | string | null) {
   if (!date) return 'Não disponível'
 
   const parsedDate = typeof date === 'string' ? new Date(date) : date
-  return new Intl.DateTimeFormat('pt-BR', {
+  const formatOptions: DateTimeFormatStyleOptions = {
     dateStyle: 'long',
     timeStyle: 'short',
-  }).format(parsedDate)
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', formatOptions).format(parsedDate)
 }
 
 export default function PerfilPage() {

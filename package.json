@@ -7,8 +7,9 @@
     "node": "20.x"
   },
   "scripts": {
+    "preinstall": "node -e \"const major = parseInt(process.version.match(/^v(\\d+)\\./)[1], 10); if (major !== 20) { console.error('Error: Node 20.x is required. Current version: ' + process.version); process.exit(1); }\"",
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint ."
   },
@@ -50,12 +51,12 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.6.0",
     "file-saver": "^2.0.5",
-    "firebase": "^12.13.0",
+    "firebase": "^9.22.1",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.564.0",
-    "next": "16.2.6",
+    "next": "^16.2.6",
     "next-themes": "^0.4.6",
     "qrcode": "^1.5.4",
     "react": "^19",
@@ -72,10 +73,13 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@next/swc-wasm-nodejs": "^16.2.6",
+    "@next/swc-win32-x64-msvc": "^16.2.6",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/recharts": "^1.8.29",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "tw-animate-css": "1.3.3",
