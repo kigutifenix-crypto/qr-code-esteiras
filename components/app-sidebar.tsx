@@ -40,6 +40,7 @@ import {
   Zap,
   ShoppingCart,
   Bell,
+  BarChart3,
 } from 'lucide-react'
 
 const navigation = [
@@ -114,6 +115,12 @@ const navigation = [
         url: '/dashboard/usuarios',
         icon: Users,
         permissions: ['create_user'],
+      },
+      {
+        title: 'Relatórios',
+        url: '/dashboard/relatorios',
+        icon: BarChart3,
+        permissions: ['view_dashboard', 'manage_settings'],
       },
       {
         title: 'Logs',
