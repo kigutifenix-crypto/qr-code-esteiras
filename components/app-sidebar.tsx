@@ -14,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import {
   DropdownMenu,
@@ -147,6 +148,9 @@ const navigation = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { user, signOut, hasPermission } = useAuth()
+  const { setOpenMobile } = useSidebar()
+
+  const closeMobile = () => setOpenMobile(false)
 
   const userInitials = user?.name
     .split(' ')
@@ -167,7 +171,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
+              <Link href="/dashboard" onClick={closeMobile}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Zap className="size-4" />
                 </div>
@@ -201,7 +205,7 @@ export function AppSidebar() {
                         isActive={pathname === item.url}
                         tooltip={item.title}
                       >
-                        <Link href={item.url}>
+                        <Link href={item.url} onClick={closeMobile}>
                           <item.icon className="size-4" />
                           <span>{item.title}</span>
                         </Link>
