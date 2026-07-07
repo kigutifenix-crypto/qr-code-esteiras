@@ -39,7 +39,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'add_parts', 'upload_photos', 'update_status', 'view_treadmills'
   ],
   compras: [
-    'view_treadmills', 'view_parts', 'view_missing_parts', 'edit_parts', 
+    'view_treadmills', 'view_parts', 'view_missing_parts', 'edit_parts',
     'add_parts', 'manage_parts', 'delete_parts', 'update_part_status'
   ],
   leitor: [
