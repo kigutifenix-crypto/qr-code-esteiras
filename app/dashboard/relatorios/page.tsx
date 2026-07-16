@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getAllTreadmills, getTreadmillsByStatus } from '@/lib/services/treadmill-service'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getAllTreadmills } from '@/lib/services/treadmill-service'
 import { getMissingParts } from '@/lib/services/parts-service'
-import type { Treadmill, Part } from '@/lib/types'
+import type { Treadmill, Part, EquipmentType } from '@/lib/types'
 import {
   FileText,
   Download,
@@ -18,6 +19,9 @@ import {
   Package,
   Loader2,
   AlertCircle,
+  Dumbbell,
+  Bike,
+  Activity,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -32,40 +36,49 @@ interface ReportData {
   loadedAt: Date | null
 }
 
+const TAB_LABELS: Record<EquipmentType, string> = {
+  esteira: 'Esteiras',
+  bike: 'Bikes',
+  eliptico: 'Elípticos',
+}
+
 export default function RelatoriosPage() {
-  const [data, setData] = useState<ReportData>({
-    manutencao: [],
-    disponiveis: [],
-    pecas: [],
-    pecasTreadmills: {},
-    loadedAt: null,
-  })
+  const [allTreadmills, setAllTreadmills] = useState<Treadmill[]>([])
+  const [allMissingParts, setAllMissingParts] = useState<Part[]>([])
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState<ReportType | null>(null)
+  const [activeTab, setActiveTab] = useState<EquipmentType>('esteira')
+
+  // Derived data filtered by active tab
+  const data = useMemo((): ReportData => {
+    const typeTreadmills = allTreadmills.filter(
+      (t) => (t.equipmentType || 'esteira') === activeTab
+    )
+    const treadmillIds = new Set(typeTreadmills.map((t) => t.id))
+    const treadmillNameMap = allTreadmills.reduce<Record<string, string>>((acc, t) => {
+      acc[t.id] = t.name
+      return acc
+    }, {})
+    return {
+      manutencao: typeTreadmills.filter((t) => t.status === 'manutencao'),
+      disponiveis: typeTreadmills.filter((t) => t.status === 'pronta'),
+      pecas: allMissingParts.filter((p) => treadmillIds.has(p.treadmillId)),
+      pecasTreadmills: treadmillNameMap,
+      loadedAt,
+    }
+  }, [allTreadmills, allMissingParts, activeTab, loadedAt])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [manutencaoData, disponiveisData, pecasData, todasEsteiras] = await Promise.all([
-        getTreadmillsByStatus('manutencao'),
-        getTreadmillsByStatus('pronta'),
-        getMissingParts(),
+      const [allTreadmillsData, pecasData] = await Promise.all([
         getAllTreadmills(),
+        getMissingParts(),
       ])
-
-      // Mapa de id -> nome das esteiras para as peças
-      const treadmillMap: Record<string, string> = {}
-      todasEsteiras.forEach((t) => {
-        treadmillMap[t.id] = t.name
-      })
-
-      setData({
-        manutencao: manutencaoData,
-        disponiveis: disponiveisData,
-        pecas: pecasData,
-        pecasTreadmills: treadmillMap,
-        loadedAt: new Date(),
-      })
+      setAllTreadmills(allTreadmillsData)
+      setAllMissingParts(pecasData)
+      setLoadedAt(new Date())
     } catch (err) {
       console.error('Erro ao carregar dados:', err)
     } finally {
@@ -111,7 +124,7 @@ export default function RelatoriosPage() {
         doc.setTextColor(255, 255, 255)
         doc.setFontSize(7)
         doc.setFont('helvetica', 'normal')
-        doc.text('FENIX COMPANY • Controle de Esteiras', margin, 8)
+        doc.text(`FENIX COMPANY • Controle de ${TAB_LABELS[activeTab]}`, margin, 8)
         doc.text(`Gerado em: ${now}`, pageWidth - margin, 8, { align: 'right' })
         doc.setTextColor(0, 0, 0)
       }
@@ -524,6 +537,24 @@ export default function RelatoriosPage() {
           </Button>
         </div>
       </div>
+
+      {/* Equipment type tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EquipmentType)}>
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="esteira" className="flex items-center gap-2">
+            <Dumbbell className="h-4 w-4" />
+            Esteiras
+          </TabsTrigger>
+          <TabsTrigger value="bike" className="flex items-center gap-2">
+            <Bike className="h-4 w-4" />
+            Bikes
+          </TabsTrigger>
+          <TabsTrigger value="eliptico" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Elípticos
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Summary stats */}
       {!loading && (

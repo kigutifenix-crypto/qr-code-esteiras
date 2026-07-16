@@ -12,7 +12,7 @@ import {
   update,
 } from 'firebase/database'
 import { db, COLLECTIONS } from '@/lib/firebase'
-import type { ArchivedTreadmill, Treadmill, TreadmillStatus, TreadmillFilters } from '@/lib/types'
+import type { ArchivedTreadmill, EquipmentType, Treadmill, TreadmillStatus, TreadmillFilters } from '@/lib/types'
 
 // Generate unique ID for QR code
 function generateQRId(): string {
@@ -39,6 +39,7 @@ function snapshotToTreadmill(id: string, data: any): Treadmill {
     incline: data?.incline || '',
     photos: Array.isArray(data?.photos) ? data.photos : [],
     status: (data?.status as TreadmillStatus) || 'pronta',
+    equipmentType: (data?.equipmentType as EquipmentType) || 'esteira',
     orderNumber: data?.orderNumber || undefined,
     saleDate: typeof data?.saleDate === 'number' ? new Date(data.saleDate) : undefined,
     deliveryStatus: data?.deliveryStatus || undefined,
@@ -420,6 +421,11 @@ export function filterTreadmills(
 ): Treadmill[] {
   let result = [...treadmills]
 
+  // Filter by equipment type (esteira = undefined | 'esteira')
+  if (filters.equipmentType && filters.equipmentType !== 'all') {
+    result = result.filter((t) => (t.equipmentType || 'esteira') === filters.equipmentType)
+  }
+
   if (filters.search) {
     const term = filters.search.toLowerCase()
     result = result.filter(
@@ -469,6 +475,13 @@ export function subscribeTreadmills(
 
     // Aplicar filtros adicionais no lado cliente se necessário
     if (filters) {
+      // Filtro por tipo de equipamento
+      if (filters.equipmentType && filters.equipmentType !== 'all') {
+        treadmills = treadmills.filter(
+          (t) => (t.equipmentType || 'esteira') === filters.equipmentType
+        )
+      }
+
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
         treadmills = treadmills.filter(t =>

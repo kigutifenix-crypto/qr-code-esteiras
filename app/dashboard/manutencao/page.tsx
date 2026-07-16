@@ -1,17 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/contexts/auth-context'
 import { subscribeAllMaintenance, deleteMaintenance } from '@/lib/services/maintenance-service'
+import { getAllTreadmills } from '@/lib/services/treadmill-service'
 import { createLog } from '@/lib/services/logs-service'
-import type { MaintenanceRecord } from '@/lib/types'
-import { Wrench, Plus, User, Calendar, AlertTriangle, MoreHorizontal, Edit, Trash2 } from 'lucide-react'
+import type { MaintenanceRecord, EquipmentType } from '@/lib/types'
+import { Wrench, Plus, User, Calendar, AlertTriangle, MoreHorizontal, Edit, Trash2, Dumbbell, Bike, Activity } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +28,10 @@ export default function ManutencaoPage() {
   const searchParams = useSearchParams()
   const [records, setRecords] = useState<MaintenanceRecord[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Obter status da URL
+  const [activeTab, setActiveTab] = useState<EquipmentType>('esteira')
+  // Mapa de treadmillId -> equipmentType para filtrar manutenções por tipo
+  const [treadmillTypeMap, setTreadmillTypeMap] = useState<Record<string, EquipmentType>>({})
+
   const statusFromUrl = searchParams.get('status')
 
   useEffect(() => {
@@ -35,8 +39,23 @@ export default function ManutencaoPage() {
       setRecords(data)
       setLoading(false)
     })
-
     return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    async function loadTreadmillTypes() {
+      try {
+        const treadmills = await getAllTreadmills()
+        const map = treadmills.reduce<Record<string, EquipmentType>>((acc, t) => {
+          acc[t.id] = (t.equipmentType || 'esteira') as EquipmentType
+          return acc
+        }, {})
+        setTreadmillTypeMap(map)
+      } catch (err) {
+        console.error('Erro ao carregar tipos de equipamento:', err)
+      }
+    }
+    loadTreadmillTypes()
   }, [])
 
   const canCreate = hasPermission('create_maintenance')
@@ -45,12 +64,10 @@ export default function ManutencaoPage() {
 
   const handleDeleteMaintenance = async (maintenanceId: string) => {
     if (!canDelete) return
-
     const confirmed = window.confirm(
       'Tem certeza que deseja excluir esta manutenção? Esta ação não pode ser desfeita.'
     )
     if (!confirmed) return
-
     try {
       await deleteMaintenance(maintenanceId)
       setRecords((current) => current.filter((record) => record.id !== maintenanceId))
@@ -85,18 +102,38 @@ export default function ManutencaoPage() {
     }
   }
 
-  // Filtrar por status se passado na URL
+  // Filtrar registros pelo tipo de equipamento da aba ativa
+  const recordsByTab = useMemo(() => {
+    return records.filter((r) => (treadmillTypeMap[r.treadmillId] || 'esteira') === activeTab)
+  }, [records, activeTab, treadmillTypeMap])
+
+  // Filtrar por status da URL
   const filteredRecords = statusFromUrl === 'active'
-    ? records.filter((r) => r.status !== 'concluida')
+    ? recordsByTab.filter((r) => r.status !== 'concluida')
     : statusFromUrl === 'completed'
-    ? records.filter((r) => r.status === 'concluida')
-    : records
+    ? recordsByTab.filter((r) => r.status === 'concluida')
+    : recordsByTab
 
   const showActiveSection = statusFromUrl !== 'completed'
   const showCompletedSection = statusFromUrl !== 'active'
 
   const activeRecords = filteredRecords.filter((r) => r.status !== 'concluida')
   const completedRecords = filteredRecords.filter((r) => r.status === 'concluida')
+
+  // Stats por aba
+  const statsByTab = useMemo(() => {
+    return {
+      emAndamento: recordsByTab.filter((r) => r.status === 'em_andamento').length,
+      aguardando: recordsByTab.filter((r) => r.status === 'aguardando_pecas').length,
+      concluidas: recordsByTab.filter((r) => r.status === 'concluida').length,
+    }
+  }, [recordsByTab])
+
+  const tabBackLink = activeTab === 'bike'
+    ? '/dashboard/bikes'
+    : activeTab === 'eliptico'
+    ? '/dashboard/elipticos'
+    : '/dashboard/esteiras'
 
   return (
     <div className="space-y-6">
@@ -118,6 +155,24 @@ export default function ManutencaoPage() {
         )}
       </div>
 
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EquipmentType)}>
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="esteira" className="flex items-center gap-2">
+            <Dumbbell className="h-4 w-4" />
+            Esteiras
+          </TabsTrigger>
+          <TabsTrigger value="bike" className="flex items-center gap-2">
+            <Bike className="h-4 w-4" />
+            Bikes
+          </TabsTrigger>
+          <TabsTrigger value="eliptico" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Elípticos
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="border-border/50">
@@ -127,9 +182,7 @@ export default function ManutencaoPage() {
                 <Wrench className="h-5 w-5 text-status-warning" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {records.filter((r) => r.status === 'em_andamento').length}
-                </p>
+                <p className="text-2xl font-bold">{statsByTab.emAndamento}</p>
                 <p className="text-sm text-muted-foreground">Em Andamento</p>
               </div>
             </div>
@@ -142,9 +195,7 @@ export default function ManutencaoPage() {
                 <AlertTriangle className="h-5 w-5 text-status-info" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {records.filter((r) => r.status === 'aguardando_pecas').length}
-                </p>
+                <p className="text-2xl font-bold">{statsByTab.aguardando}</p>
                 <p className="text-sm text-muted-foreground">Aguardando Peças</p>
               </div>
             </div>
@@ -157,9 +208,7 @@ export default function ManutencaoPage() {
                 <Wrench className="h-5 w-5 text-status-success" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {completedRecords.length}
-                </p>
+                <p className="text-2xl font-bold">{statsByTab.concluidas}</p>
                 <p className="text-sm text-muted-foreground">Concluídas</p>
               </div>
             </div>
@@ -181,7 +230,7 @@ export default function ManutencaoPage() {
             <Card className="border-border/50">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Wrench className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-muted-foreground">Nenhuma manutenção ativa</p>
+                <p className="text-muted-foreground">Nenhuma manutenção ativa nesta categoria</p>
               </CardContent>
             </Card>
           ) : (
@@ -255,8 +304,8 @@ export default function ManutencaoPage() {
                           {format(record.createdAt, "dd/MM/yyyy", { locale: ptBR })}
                         </span>
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/esteiras/${record.treadmillId}`}>
-                            Ver Esteira
+                          <Link href={`/dashboard/esteiras/${record.treadmillId}?back=${tabBackLink}`}>
+                            Ver Equipamento
                           </Link>
                         </Button>
                       </div>

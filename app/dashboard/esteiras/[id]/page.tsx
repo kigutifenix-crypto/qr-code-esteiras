@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { getTreadmill } from '@/lib/services/treadmill-service'
 import { deleteMaintenance, getMaintenanceByTreadmill } from '@/lib/services/maintenance-service'
 import { deletePart, getPartsByTreadmill } from '@/lib/services/parts-service'
 import type { Treadmill, MaintenanceRecord, Part } from '@/lib/types'
+import { getEquipmentTypeLabel } from '@/lib/types'
 import {
   ArrowLeft,
   Edit,
@@ -43,6 +44,8 @@ export default function EsteiraDetailPage() {
   const [deletingPartId, setDeletingPartId] = useState<string | null>(null)
 
   const id = params.id as string
+  const searchParams = useSearchParams()
+  const backTo = searchParams.get('back') || '/dashboard/esteiras'
 
   useEffect(() => {
     async function loadData() {
@@ -155,7 +158,7 @@ export default function EsteiraDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={treadmill.status === 'vendido' ? '/dashboard/vendidos' : '/dashboard/esteiras'}>
+            <Link href={treadmill.status === 'vendido' ? '/dashboard/vendidos' : backTo}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -163,6 +166,11 @@ export default function EsteiraDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{treadmill.name}</h1>
               <StatusBadge status={treadmill.status} />
+              {treadmill.equipmentType && treadmill.equipmentType !== 'esteira' && (
+                <Badge variant="secondary" className="text-xs">
+                  {getEquipmentTypeLabel(treadmill.equipmentType)}
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground mt-1">
               {treadmill.brand} - {treadmill.model}

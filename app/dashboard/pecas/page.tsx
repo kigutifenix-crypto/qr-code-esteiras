@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -26,8 +27,8 @@ import { StatusBadge } from '@/components/status-badge'
 import { useAuth } from '@/contexts/auth-context'
 import { subscribeAllParts, updatePart, deletePart } from '@/lib/services/parts-service'
 import { getAllTreadmills } from '@/lib/services/treadmill-service'
-import type { Part, PartStatus } from '@/lib/types'
-import { Package, Plus, Search, MoreHorizontal, Eye, Edit, Check, CheckCircle2, Trash2 } from 'lucide-react'
+import type { Part, PartStatus, EquipmentType } from '@/lib/types'
+import { Package, Plus, Search, MoreHorizontal, Eye, Edit, Check, CheckCircle2, Trash2, Dumbbell, Bike, Activity } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,11 @@ import {
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
+interface TreadmillInfo {
+  name: string
+  equipmentType: EquipmentType
+}
+
 export default function PecasPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,19 +50,18 @@ export default function PecasPage() {
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [treadmillNames, setTreadmillNames] = useState<Record<string, string>>({})
-  
-  // Mapear o parâmetro 'status' para o tipo PartStatus
+  const [activeTab, setActiveTab] = useState<EquipmentType>('esteira')
+  const [treadmillMap, setTreadmillMap] = useState<Record<string, TreadmillInfo>>({})
+
   const statusFromUrl = searchParams.get('status')
-  const mappedStatus: PartStatus | 'all' = 
+  const mappedStatus: PartStatus | 'all' =
     statusFromUrl === 'missing' || statusFromUrl === 'faltando' ? 'faltando' :
     statusFromUrl === 'purchased' || statusFromUrl === 'comprada' ? 'comprada' :
     statusFromUrl === 'received' || statusFromUrl === 'recebida' ? 'recebida' :
     'all'
-  
+
   const [statusFilter, setStatusFilter] = useState<PartStatus | 'all'>(mappedStatus)
 
-  // Atualizar filtro quando a URL mudar
   useEffect(() => {
     setStatusFilter(mappedStatus)
   }, [statusFromUrl])
@@ -66,24 +71,25 @@ export default function PecasPage() {
       setParts(data)
       setLoading(false)
     })
-
     return () => unsubscribe()
   }, [])
 
   useEffect(() => {
-    const fetchTreadmills = async () => {
+    async function fetchTreadmills() {
       try {
         const data = await getAllTreadmills()
-        const names = data.reduce<Record<string, string>>((acc, treadmill) => {
-          acc[treadmill.id] = treadmill.name || treadmill.qrCode || treadmill.id
+        const map = data.reduce<Record<string, TreadmillInfo>>((acc, t) => {
+          acc[t.id] = {
+            name: t.name || t.qrCode || t.id,
+            equipmentType: (t.equipmentType || 'esteira') as EquipmentType,
+          }
           return acc
         }, {})
-        setTreadmillNames(names)
+        setTreadmillMap(map)
       } catch (err) {
         console.error('Erro ao carregar esteiras:', err)
       }
     }
-
     fetchTreadmills()
   }, [])
 
@@ -95,12 +101,10 @@ export default function PecasPage() {
 
   const handleDeletePart = async (partId: string) => {
     if (!canDelete) return
-
     const confirmed = window.confirm(
       'Tem certeza que deseja excluir esta peça? Esta ação não pode ser desfeita.'
     )
     if (!confirmed) return
-
     try {
       await deletePart(partId)
       setParts((current) => current.filter((part) => part.id !== partId))
@@ -110,20 +114,36 @@ export default function PecasPage() {
     }
   }
 
-  const filteredParts = parts.filter((part) => {
-    const treadmillName = treadmillNames[part.treadmillId] || part.treadmillId || ''
-    const matchesSearch =
-      part.name.toLowerCase().includes(search.toLowerCase()) ||
-      treadmillName.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || part.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  // Filtrar peças pela aba ativa (tipo do equipamento vinculado)
+  const partsByTab = useMemo(() => {
+    return parts.filter((part) => {
+      const info = treadmillMap[part.treadmillId]
+      return (info?.equipmentType || 'esteira') === activeTab
+    })
+  }, [parts, activeTab, treadmillMap])
 
-  const stats = {
-    missing: parts.filter((p) => p.status === 'faltando').length,
-    purchased: parts.filter((p) => p.status === 'comprada').length,
-    received: parts.filter((p) => p.status === 'recebida').length,
-  }
+  const filteredParts = useMemo(() => {
+    return partsByTab.filter((part) => {
+      const treadmillName = treadmillMap[part.treadmillId]?.name || part.treadmillId || ''
+      const matchesSearch =
+        part.name.toLowerCase().includes(search.toLowerCase()) ||
+        treadmillName.toLowerCase().includes(search.toLowerCase())
+      const matchesStatus = statusFilter === 'all' || part.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+  }, [partsByTab, search, statusFilter, treadmillMap])
+
+  const stats = useMemo(() => ({
+    missing: partsByTab.filter((p) => p.status === 'faltando').length,
+    purchased: partsByTab.filter((p) => p.status === 'comprada').length,
+    received: partsByTab.filter((p) => p.status === 'recebida').length,
+  }), [partsByTab])
+
+  const tabBackLink = activeTab === 'bike'
+    ? '/dashboard/bikes'
+    : activeTab === 'eliptico'
+    ? '/dashboard/elipticos'
+    : '/dashboard/esteiras'
 
   return (
     <div className="space-y-6">
@@ -144,6 +164,24 @@ export default function PecasPage() {
           </Button>
         )}
       </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EquipmentType)}>
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="esteira" className="flex items-center gap-2">
+            <Dumbbell className="h-4 w-4" />
+            Esteiras
+          </TabsTrigger>
+          <TabsTrigger value="bike" className="flex items-center gap-2">
+            <Bike className="h-4 w-4" />
+            Bikes
+          </TabsTrigger>
+          <TabsTrigger value="eliptico" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Elípticos
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -198,7 +236,7 @@ export default function PecasPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome ou código..."
+                placeholder="Buscar por nome ou equipamento..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 bg-input/50"
@@ -238,7 +276,7 @@ export default function PecasPage() {
               <p className="text-muted-foreground text-sm mt-1">
                 {search || statusFilter !== 'all'
                   ? 'Tente ajustar os filtros de busca'
-                  : 'Comece adicionando uma nova peça'}
+                  : 'Comece adicionando uma nova peça para este tipo de equipamento'}
               </p>
             </div>
           ) : (
@@ -246,7 +284,7 @@ export default function PecasPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Nome</TableHead>
-                  <TableHead>Esteira</TableHead>
+                  <TableHead>Equipamento</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Qtd</TableHead>
                   <TableHead>Status</TableHead>
@@ -288,9 +326,9 @@ export default function PecasPage() {
                     </TableCell>
                     <TableCell>
                       {part.treadmillId ? (
-                        <Link href={`/dashboard/esteiras/${part.treadmillId}`}>
+                        <Link href={`/dashboard/esteiras/${part.treadmillId}?back=${tabBackLink}`}>
                           <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
-                            {treadmillNames[part.treadmillId] || part.treadmillId}
+                            {treadmillMap[part.treadmillId]?.name || part.treadmillId}
                           </code>
                         </Link>
                       ) : (
@@ -376,9 +414,9 @@ export default function PecasPage() {
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/esteiras/${part.treadmillId}`}>
+                            <Link href={`/dashboard/esteiras/${part.treadmillId}?back=${tabBackLink}`}>
                               <Eye className="mr-2 h-4 w-4" />
-                              Ver Esteira
+                              Ver Equipamento
                             </Link>
                           </DropdownMenuItem>
                         </DropdownMenuContent>

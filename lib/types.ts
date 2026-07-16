@@ -1,6 +1,9 @@
 // User roles
 export type UserRole = 'admin' | 'tecnico' | 'compras' | 'leitor'
 
+// Equipment type
+export type EquipmentType = 'esteira' | 'bike' | 'eliptico'
+
 // User type
 export interface User {
   id: string
@@ -35,6 +38,7 @@ export interface Treadmill {
   incline: string
   photos: string[]
   status: TreadmillStatus
+  equipmentType?: EquipmentType
   orderNumber?: string
   deliveryStatus?: DeliveryStatus
   saleDate?: Date
@@ -141,6 +145,7 @@ export interface TreadmillFilters {
   status: TreadmillStatus | 'all'
   hasPartsMissing: boolean | null
   hasPartsPurchased: boolean | null
+  equipmentType?: EquipmentType | 'all'
 }
 
 // Role permissions
@@ -264,5 +269,31 @@ export function getRoleLabel(role: UserRole): string {
       return 'Leitor/Vendedor'
     default:
       return 'Desconhecido'
+  }
+}
+
+// Get equipment type label
+export function getEquipmentTypeLabel(type?: EquipmentType): string {
+  switch (type) {
+    case 'bike':
+      return 'Bike'
+    case 'eliptico':
+      return 'Elíptico'
+    case 'esteira':
+    default:
+      return 'Esteira'
+  }
+}
+
+// Get equipment type plural label
+export function getEquipmentTypePluralLabel(type?: EquipmentType): string {
+  switch (type) {
+    case 'bike':
+      return 'Bikes'
+    case 'eliptico':
+      return 'Elípticos'
+    case 'esteira':
+    default:
+      return 'Esteiras'
   }
 }

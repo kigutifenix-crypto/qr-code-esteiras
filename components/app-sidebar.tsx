@@ -42,6 +42,8 @@ import {
   ShoppingCart,
   Bell,
   BarChart3,
+  Bike,
+  Activity,
 } from 'lucide-react'
 
 const navigation = [
@@ -58,6 +60,18 @@ const navigation = [
         title: 'Esteiras',
         url: '/dashboard/esteiras',
         icon: Dumbbell,
+        permissions: ['view_treadmills', 'create_treadmill'],
+      },
+      {
+        title: 'Bikes',
+        url: '/dashboard/bikes',
+        icon: Bike,
+        permissions: ['view_treadmills', 'create_treadmill'],
+      },
+      {
+        title: 'Elípticos',
+        url: '/dashboard/elipticos',
+        icon: Activity,
         permissions: ['view_treadmills', 'create_treadmill'],
       },
       {
