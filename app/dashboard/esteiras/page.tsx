@@ -84,6 +84,7 @@ export default function EsteirasPage() {
     status,
     hasPartsMissing: null,
     hasPartsPurchased: null,
+    equipmentType: 'esteira',
   })
 
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)

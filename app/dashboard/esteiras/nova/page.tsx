@@ -57,13 +57,14 @@ export default function NovaEsteiraPage() {
     async function loadNumbers() {
       try {
         const treadmills = await getAllTreadmills()
-        const takenNumbers = treadmills.map((t) => t.qrCode)
+        const activeTreadmills = treadmills.filter((t) => (t.equipmentType || 'esteira') === 'esteira')
+        const takenNumbers = activeTreadmills.map((t) => t.qrCode)
         const allNumbers = Array.from({ length: 200 }, (_, i) => String(i + 1))
         const available = allNumbers.filter((number) => !takenNumbers.includes(number))
         setAvailableNumbers(available)
         
         // Calcular o próximo número automaticamente baseado na quantidade de esteiras
-        const nextNum = String(treadmills.length + 1)
+        const nextNum = String(activeTreadmills.length + 1)
         if (available.includes(nextNum)) {
           setNextNumber(nextNum)
         } else {
@@ -98,6 +99,7 @@ export default function NovaEsteiraPage() {
     try {
       await createTreadmill({
         ...formData,
+        equipmentType: 'esteira',
         qrCode: formData.number,
         photos: [],
         createdBy: user?.id || '',
