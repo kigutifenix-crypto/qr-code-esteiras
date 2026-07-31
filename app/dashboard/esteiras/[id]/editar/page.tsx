@@ -22,7 +22,8 @@ import { format } from 'date-fns'
 import { getTreadmill, updateTreadmill } from '@/lib/services/treadmill-service'
 import { useAuth } from '@/contexts/auth-context'
 import { createLog } from '@/lib/services/logs-service'
-import type { TreadmillStatus, DeliveryStatus } from '@/lib/types'
+import { getEquipmentTypeLabel } from '@/lib/types'
+import type { TreadmillStatus, DeliveryStatus, EquipmentType } from '@/lib/types'
 
 type TreadmillForm = {
   name: string
@@ -62,6 +63,7 @@ export default function EditarEsteiraPage() {
     deliveryStatus: undefined,
     saleDate: undefined,
   })
+  const [equipmentType, setEquipmentType] = useState<EquipmentType>('esteira')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +71,12 @@ export default function EditarEsteiraPage() {
 
   const id = params.id as string
   const { user } = useAuth()
+
+  const typeLabel = getEquipmentTypeLabel(equipmentType)
+  const isFeminine = equipmentType === 'esteira' || equipmentType === 'bike'
+  const genderPreposition = isFeminine ? 'da' : 'do'
+  const genderArticle = isFeminine ? 'a' : 'o'
+  const genderSuffix = isFeminine ? 'a' : 'o'
 
   useEffect(() => {
     async function loadTreadmill() {
@@ -103,8 +111,9 @@ export default function EditarEsteiraPage() {
           deliveryStatus: treadmill.deliveryStatus || undefined,
           saleDate: treadmill.saleDate ? formatDateInput(treadmill.saleDate) : undefined,
         })
+        setEquipmentType(treadmill.equipmentType || 'esteira')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao carregar a esteira')
+        setError(err instanceof Error ? err.message : 'Erro ao carregar o equipamento')
       } finally {
         setLoading(false)
       }
@@ -127,7 +136,7 @@ export default function EditarEsteiraPage() {
 
     // Validar que orderNumber é obrigatório quando status é vendido
     if (formData.status === 'vendido' && !formData.orderNumber.trim()) {
-      setError('Número do pedido é obrigatório para esteiras vendidas')
+      setError(`Número do pedido é obrigatório para ${typeLabel.toLowerCase()}s vendid${genderSuffix}s`)
       setSaving(false)
       return
     }
@@ -165,7 +174,7 @@ export default function EditarEsteiraPage() {
         console.warn('Failed to write update log', e)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar a esteira')
+      setError(err instanceof Error ? err.message : `Erro ao salvar o/a ${typeLabel.toLowerCase()}`)
     } finally {
       setSaving(false)
     }
@@ -187,14 +196,15 @@ export default function EditarEsteiraPage() {
   }
 
   if (notFound) {
+    const listUrl = equipmentType === 'esteira' ? '/dashboard/esteiras' : (equipmentType === 'bike' ? '/dashboard/bikes' : '/dashboard/elipticos')
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <h2 className="text-xl font-semibold">Esteira não encontrada</h2>
+        <h2 className="text-xl font-semibold">{typeLabel} não encontrad{genderSuffix}</h2>
         <p className="text-muted-foreground mt-2">
-          A esteira que você está tentando editar não existe.
+          {genderArticle.toUpperCase()} {typeLabel.toLowerCase()} que você está tentando editar não existe.
         </p>
         <Button asChild className="mt-4">
-          <Link href="/dashboard/esteiras">Voltar para lista</Link>
+          <Link href={listUrl}>Voltar para lista</Link>
         </Button>
       </div>
     )
@@ -209,9 +219,9 @@ export default function EditarEsteiraPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Editar Esteira</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Editar {typeLabel}</h1>
           <p className="text-muted-foreground">
-            Atualize as informações da esteira selecionada.
+            Atualize as informações {genderPreposition} {typeLabel.toLowerCase()} selecionad{genderSuffix}.
           </p>
         </div>
       </div>
@@ -227,7 +237,7 @@ export default function EditarEsteiraPage() {
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle>Informações Básicas</CardTitle>
-            <CardDescription>Dados de identificação da esteira</CardDescription>
+            <CardDescription>Dados de identificação {genderPreposition} {typeLabel.toLowerCase()}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -290,7 +300,7 @@ export default function EditarEsteiraPage() {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Descrição da esteira"
+                placeholder={`Descrição ${genderPreposition} ${typeLabel.toLowerCase()}`}
                 className="bg-input/50"
               />
             </div>
@@ -351,7 +361,7 @@ export default function EditarEsteiraPage() {
                     <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Informe o status de entrega da esteira vendida</p>
+                 <p className="text-xs text-muted-foreground">Informe o status de entrega {genderPreposition} {typeLabel.toLowerCase()} vendid${genderSuffix}</p>
               </div>
             )}
 
@@ -394,6 +404,7 @@ export default function EditarEsteiraPage() {
                     <SelectItem value="220V">220V</SelectItem>
                     <SelectItem value="110V">110V</SelectItem>
                     <SelectItem value="Bivolt">Bivolt</SelectItem>
+                    <SelectItem value="N/A">Não se aplica (N/A)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -453,7 +464,7 @@ export default function EditarEsteiraPage() {
                 name="specifications"
                 value={formData.specifications}
                 onChange={handleChange}
-                placeholder="Dados extras sobre a esteira"
+                placeholder={`Dados extras sobre ${genderArticle} ${typeLabel.toLowerCase()}`}
                 className="bg-input/50"
               />
             </div>

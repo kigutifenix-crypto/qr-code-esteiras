@@ -8,9 +8,9 @@
   },
   "scripts": {
     "preinstall": "node -e \"const major = parseInt(process.version.match(/^v(\\d+)\\./)[1], 10); if (major !== 20) { console.error('Error: Node 20.x is required. Current version: ' + process.version); process.exit(1); }\"",
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build --webpack",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "eslint ."
   },
   "dependencies": {
