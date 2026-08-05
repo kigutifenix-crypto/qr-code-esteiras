@@ -36,7 +36,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbPage className="text-foreground">
-                  Controle de Esteiras
+                  Controle de Máquinas
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>

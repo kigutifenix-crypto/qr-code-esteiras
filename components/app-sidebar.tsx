@@ -190,7 +190,7 @@ export function AppSidebar() {
                   <Zap className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Controle de Esteiras</span>
+                  <span className="font-semibold">Controle de Máquinas</span>
                   <span className="text-xs text-muted-foreground">Fenix Company</span>
                 </div>
               </Link>

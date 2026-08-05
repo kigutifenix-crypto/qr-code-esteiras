@@ -381,7 +381,7 @@ export default function RelatoriosPage() {
         } else {
           drawSectionTitle('Lista de Peças para Compra', [124, 58, 237])
           const colWidths = [48, 22, 18, 40, 52]
-          drawRow(['Nome da Peça', 'Código', 'Qtd.', 'Esteira', 'Observações'], colWidths, true)
+          drawRow(['Nome da Peça', 'Código', 'Qtd.', 'Máquina', 'Observações'], colWidths, true)
           items.forEach((p, i) => {
             const treadmillName = data.pecasTreadmills[p.treadmillId] || 'N/D'
             drawRow(
@@ -397,12 +397,12 @@ export default function RelatoriosPage() {
           // Agrupado por esteira
           const byTreadmill: Record<string, Part[]> = {}
           items.forEach((p) => {
-            const key = data.pecasTreadmills[p.treadmillId] || 'Esteira não identificada'
+            const key = data.pecasTreadmills[p.treadmillId] || 'Máquina não identificada'
             if (!byTreadmill[key]) byTreadmill[key] = []
             byTreadmill[key].push(p)
           })
 
-          drawSectionTitle('Peças por Esteira', [124, 58, 237])
+          drawSectionTitle('Peças por Máquina', [124, 58, 237])
           Object.entries(byTreadmill).forEach(([treadmillName, parts]) => {
             checkNewPage(20)
             doc.setFillColor(245, 243, 255)
@@ -438,7 +438,7 @@ export default function RelatoriosPage() {
         doc.setFontSize(7)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(100, 116, 139)
-        doc.text('Fenix Company — Sistema de Controle de Esteiras', margin, pageHeight - 4)
+        doc.text('Fenix Company — Sistema de Controle de Máquinas', margin, pageHeight - 4)
         doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 4, { align: 'right' })
       }
 

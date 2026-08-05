@@ -205,7 +205,7 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <StatsCard
-          title="Total de Esteiras"
+          title="Total de Máquinas"
           value={stats?.treadmills.total}
           loading={loading}
           icon={Dumbbell}
@@ -240,11 +240,11 @@ export default function DashboardPage() {
           href="/dashboard/esteiras?status=aguardando_pecas"
         />
         <StatsCard
-          title="Vendidos"
+          title="Vendidas"
           value={stats?.treadmills.sold}
           loading={loading}
           icon={CheckCircle}
-          description="Esteiras vendidas"
+          description="Máquinas vendidas"
           variant="default"
           href="/dashboard/vendidos"
         />
@@ -288,7 +288,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              Status das Esteiras
+              Status das Máquinas
             </CardTitle>
             <CardDescription>Distribuição por situação atual</CardDescription>
           </CardHeader>

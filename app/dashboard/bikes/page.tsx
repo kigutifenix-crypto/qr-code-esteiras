@@ -42,6 +42,7 @@ import {
   QrCode,
   Bike,
   MoreHorizontal,
+  Printer,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -72,6 +73,7 @@ export default function BikesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [relatedCounts, setRelatedCounts] = useState<{ maintenance: number; parts: number } | null>(null)
   const [archiveMode, setArchiveMode] = useState<'archive' | 'delete'>('archive')
+  const [printingLabels, setPrintingLabels] = useState(false)
 
   const statusFromUrl = searchParams.get('status')
   const status = ['all', 'pronta', 'manutencao', 'aguardando_pecas', 'vendido'].includes(statusFromUrl ?? '')
@@ -179,6 +181,107 @@ export default function BikesPage() {
   const canEdit = hasPermission('edit_treadmill')
   const canDelete = hasPermission('delete_treadmill')
 
+  const printAllLabels = async () => {
+    const items = filteredBikes
+    if (items.length === 0) return
+
+    setPrintingLabels(true)
+    try {
+      const origin = window.location.origin
+      const QRCodeLib = (await import('qrcode')).default
+
+      const pages = await Promise.all(
+        items.map(async (t, idx) => {
+          const url = `${origin}/esteira/${t.qrCode}`
+          const imgSrc = await QRCodeLib.toDataURL(url, {
+            width: 280,
+            margin: 2,
+            color: { dark: '#0f172a', light: '#ffffff' },
+          })
+          const isLast = idx === items.length - 1
+          return `
+            <div class="page${isLast ? '' : ' page-break'}">
+              <div class="qr-container">
+                <div class="header">
+                  <span class="company">FENIX COMPANY</span>
+                  <span class="badge">Bike</span>
+                </div>
+                <h1>${t.name}</h1>
+                <p class="subtitle">${t.brand || ''}${t.brand && t.model ? ' — ' : ''}${t.model || ''}</p>
+                <div class="qr-wrap">
+                  <img src="${imgSrc}" alt="QR Code" width="240" height="240" />
+                </div>
+                <div class="code">${t.qrCode}</div>
+                <p class="scan-text">Escaneie para ver detalhes</p>
+              </div>
+            </div>`
+        })
+      )
+
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) return
+
+      printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Etiquetas QR Code — Bikes (${items.length})</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f8fafc; }
+    .no-print {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      background: #1e293b; color: white;
+      padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .no-print span { font-size: 14px; opacity: 0.8; }
+    .no-print button {
+      padding: 8px 28px; background: #10b981; color: white;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 14px; font-weight: 700;
+    }
+    .no-print button:hover { background: #059669; }
+    .spacer { height: 50px; }
+    .page {
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center;
+      background: white;
+    }
+    .page-break { page-break-after: always; border-bottom: 2px dashed #e2e8f0; }
+    .qr-container { text-align: center; padding: 40px; max-width: 420px; width: 100%; }
+    .header { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    .company { font-size: 11px; font-weight: 800; color: #10b981; letter-spacing: 2px; text-transform: uppercase; }
+    .badge { font-size: 10px; color: #064e3b; background: #d1fae5; padding: 2px 12px; border-radius: 20px; border: 1px solid #6ee7b7; }
+    h1 { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 24px; }
+    .qr-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
+    .qr-wrap img { border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.13); border: 6px solid #fff; }
+    .code { font-family: monospace; font-size: 17px; color: #475569; background: #f1f5f9; display: inline-block; padding: 6px 20px; border-radius: 8px; margin-bottom: 10px; }
+    .scan-text { font-size: 12px; color: #94a3b8; }
+    @media print {
+      body { background: white; }
+      .no-print, .spacer { display: none !important; }
+      .page { min-height: 100vh; border: none; }
+      .page-break { border-bottom: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <span>🖨️ ${items.length} etiqueta(s) de Bikes — 1 por página</span>
+    <button onclick="window.print()">Imprimir Todas</button>
+  </div>
+  <div class="spacer"></div>
+  ${pages.join('\n')}
+</body>
+</html>`)
+      printWindow.document.close()
+    } finally {
+      setPrintingLabels(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -193,6 +296,15 @@ export default function BikesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={printAllLabels}
+            disabled={filteredBikes.length === 0 || printingLabels}
+            className="gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            {printingLabels ? 'Gerando...' : `Imprimir Etiquetas (${filteredBikes.length})`}
+          </Button>
           {canCreate && (
             <Button asChild>
               <Link href="/dashboard/bikes/nova">
