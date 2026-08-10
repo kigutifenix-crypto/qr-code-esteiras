@@ -74,6 +74,7 @@ export default function ElipticosPage() {
   const [relatedCounts, setRelatedCounts] = useState<{ maintenance: number; parts: number } | null>(null)
   const [archiveMode, setArchiveMode] = useState<'archive' | 'delete'>('archive')
   const [printingLabels, setPrintingLabels] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const statusFromUrl = searchParams.get('status')
   const status = ['all', 'pronta', 'manutencao', 'aguardando_pecas', 'vendido'].includes(statusFromUrl ?? '')
@@ -124,6 +125,36 @@ export default function ElipticosPage() {
   }, [])
 
   const filteredElipticos = filterTreadmills(elipticos, filters)
+
+  // Seleção de máquinas
+  const allVisibleIds = filteredElipticos.map(e => e.id)
+  const allSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id))
+  const someSelected = allVisibleIds.some(id => selectedIds.has(id))
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        allVisibleIds.forEach(id => next.delete(id))
+        return next
+      })
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        allVisibleIds.forEach(id => next.add(id))
+        return next
+      })
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   useEffect(() => {
     async function fetchCounts() {
@@ -181,8 +212,7 @@ export default function ElipticosPage() {
   const canEdit = hasPermission('edit_treadmill')
   const canDelete = hasPermission('delete_treadmill')
 
-  const printAllLabels = async () => {
-    const items = filteredElipticos
+  const generateLabels = async (items: Treadmill[]) => {
     if (items.length === 0) return
 
     setPrintingLabels(true)
@@ -251,14 +281,14 @@ export default function ElipticosPage() {
     .page-break { page-break-after: always; border-bottom: 2px dashed #e2e8f0; }
     .qr-container { text-align: center; padding: 40px; max-width: 420px; width: 100%; }
     .header { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; }
-    .company { font-size: 11px; font-weight: 800; color: #8b5cf6; letter-spacing: 2px; text-transform: uppercase; }
-    .badge { font-size: 10px; color: #4c1d95; background: #ede9fe; padding: 2px 12px; border-radius: 20px; border: 1px solid #c4b5fd; }
-    h1 { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 24px; }
+    .company { font-size: 13px; font-weight: 800; color: #8b5cf6; letter-spacing: 2px; text-transform: uppercase; }
+    .badge { font-size: 12px; font-weight: 700; color: #4c1d95; background: #ede9fe; padding: 3px 14px; border-radius: 20px; border: 1px solid #c4b5fd; }
+    h1 { font-size: 30px; font-weight: 900; color: #0f172a; margin-bottom: 8px; }
+    .subtitle { font-size: 18px; font-weight: 700; color: #334155; margin-bottom: 24px; }
     .qr-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
     .qr-wrap img { border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.13); border: 6px solid #fff; }
-    .code { font-family: monospace; font-size: 17px; color: #475569; background: #f1f5f9; display: inline-block; padding: 6px 20px; border-radius: 8px; margin-bottom: 10px; }
-    .scan-text { font-size: 12px; color: #94a3b8; }
+    .code { font-family: monospace; font-size: 20px; font-weight: 800; color: #1e293b; background: #f1f5f9; display: inline-block; padding: 8px 24px; border-radius: 8px; margin-bottom: 10px; }
+    .scan-text { font-size: 14px; font-weight: 600; color: #64748b; }
     @media print {
       body { background: white; }
       .no-print, .spacer { display: none !important; }
@@ -282,6 +312,13 @@ export default function ElipticosPage() {
     }
   }
 
+  const printAllLabels = () => generateLabels(filteredElipticos)
+
+  const printSelectedLabels = () => {
+    const selected = filteredElipticos.filter(e => selectedIds.has(e.id))
+    generateLabels(selected)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -295,7 +332,18 @@ export default function ElipticosPage() {
             Gerencie todos os elípticos cadastrados no sistema
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectedIds.size > 0 && (
+            <Button
+              variant="outline"
+              onClick={printSelectedLabels}
+              disabled={printingLabels}
+              className="gap-2 border-purple-500 text-purple-600 hover:bg-purple-50"
+            >
+              <Printer className="h-4 w-4" />
+              {printingLabels ? 'Gerando...' : `Imprimir Selecionadas (${selectedIds.size})`}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={printAllLabels}
@@ -303,7 +351,7 @@ export default function ElipticosPage() {
             className="gap-2"
           >
             <Printer className="h-4 w-4" />
-            {printingLabels ? 'Gerando...' : `Imprimir Etiquetas (${filteredElipticos.length})`}
+            {printingLabels ? 'Gerando...' : `Imprimir Todas (${filteredElipticos.length})`}
           </Button>
           {canCreate && (
             <Button asChild>
@@ -351,6 +399,19 @@ export default function ElipticosPage() {
         </CardContent>
       </Card>
 
+      {/* Selection info bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-sm text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
+          <span><strong>{selectedIds.size}</strong> máquina(s) selecionada(s)</span>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="font-medium underline hover:no-underline"
+          >
+            Limpar seleção
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <Card className="border-border/50">
         <CardContent className="p-0">
@@ -382,6 +443,16 @@ export default function ElipticosPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[48px]">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
+                      onChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                      className="h-4 w-4 cursor-pointer rounded border-2 border-slate-400 bg-white accent-purple-600 dark:bg-slate-700 dark:border-slate-500"
+                    />
+                  </TableHead>
                   <TableHead>Número</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Marca / Modelo</TableHead>
@@ -394,12 +465,12 @@ export default function ElipticosPage() {
                 {filteredElipticos.map((eliptico) => (
                   <TableRow
                     key={eliptico.id}
-                    className="group cursor-pointer"
+                    className={`group cursor-pointer ${selectedIds.has(eliptico.id) ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
                     tabIndex={0}
                     role="button"
                     onClick={(e) => {
                       const target = e.target as HTMLElement
-                      if (target.closest('button, a')) return
+                      if (target.closest('button, a, [role="checkbox"]')) return
                       router.push(`/dashboard/esteiras/${eliptico.id}?back=/dashboard/elipticos`)
                     }}
                     onKeyDown={(e) => {
@@ -408,6 +479,15 @@ export default function ElipticosPage() {
                       }
                     }}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(eliptico.id)}
+                        onChange={() => toggleSelect(eliptico.id)}
+                        aria-label={`Selecionar ${eliptico.name}`}
+                        className="h-4 w-4 cursor-pointer rounded border-2 border-slate-400 bg-white accent-purple-600 dark:bg-slate-700 dark:border-slate-500"
+                      />
+                    </TableCell>
                     <TableCell>
                       <code className="px-2 py-1 rounded bg-muted text-xs font-mono">
                         {eliptico.qrCode}
@@ -434,7 +514,7 @@ export default function ElipticosPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                            className="opacity-100"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Ações</span>
